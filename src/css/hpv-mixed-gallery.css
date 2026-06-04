@@ -1,0 +1,303 @@
+/* hpv-mixed-gallery — styles, scoped under the .hpv-mixed-gallery root.
+   Layout/buttons come from Bulma; icons from FontAwesome (host page deps). */
+
+.hpv-mixed-gallery {
+	--mg-card-bg: #ffffff;
+	--mg-border: #e2e8f0;
+	--mg-text-main: #0f172a;
+	--mg-text-sub: #475569;
+	--mg-accent: #0f172a;
+
+	background: var(--mg-card-bg);
+	border: 1px solid var(--mg-border);
+	border-radius: 12px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+	width: 100%;
+	max-width: 680px;
+	margin: 0 auto;
+	padding: 2.25rem 2rem;
+}
+
+/* Header / footer text bits (lifted from inline styles) */
+.hpv-mixed-gallery .mg-title {
+	color: var(--mg-text-main);
+	font-weight: 700;
+}
+.hpv-mixed-gallery .mg-subtitle {
+	color: var(--mg-text-sub);
+	line-height: 1.4;
+}
+.hpv-mixed-gallery .mg-section-title {
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+}
+.hpv-mixed-gallery .mg-accent-btn {
+	background-color: var(--mg-accent);
+	border-radius: 6px;
+	font-weight: 500;
+}
+.hpv-mixed-gallery .mg-save-btn {
+	padding: 0.5rem 1.25rem;
+}
+.hpv-mixed-gallery .mg-footer {
+	border-top: 1px solid var(--mg-border);
+}
+.hpv-mixed-gallery .mg-counter {
+	font-weight: 500;
+	line-height: 1.5;
+}
+
+/* Upload panel (progressive disclosure) — collapsed until opened.
+   Animated via max-height/opacity/slide so it grows out of the header
+   instead of hard-cutting in. */
+.hpv-mixed-gallery .upload-disclosure-panel {
+	background-color: #f8fafc;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	padding: 0 1.25rem;
+	margin-bottom: 0;
+	max-height: 0;
+	opacity: 0;
+	overflow: hidden;
+	transform: translateY(-4px);
+	transition:
+		max-height 0.28s ease,
+		opacity 0.2s ease,
+		padding 0.28s ease,
+		margin 0.28s ease,
+		transform 0.28s ease,
+		border-color 0.28s ease;
+}
+.hpv-mixed-gallery .upload-disclosure-panel.is-open {
+	max-height: 420px;
+	opacity: 1;
+	padding: 1.25rem;
+	margin-bottom: 1.5rem;
+	border-color: #f1f5f9;
+	transform: translateY(0);
+}
+
+/* Toggle button icon: a plus that rotates 45° into an × on open */
+.hpv-mixed-gallery .mg-toggle-icon {
+	transition: transform 0.25s ease;
+}
+.hpv-mixed-gallery .mg-toggle-icon.is-rotated {
+	transform: rotate(45deg);
+}
+
+/* Dark accent buttons (Adicionar / Salvar): calm hover + press feedback */
+.hpv-mixed-gallery .mg-accent-btn {
+	transition:
+		background-color 0.15s ease,
+		box-shadow 0.15s ease,
+		transform 0.1s ease;
+}
+.hpv-mixed-gallery .mg-accent-btn:hover {
+	background-color: #1e293b;
+	box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
+}
+.hpv-mixed-gallery .mg-accent-btn:active {
+	transform: scale(0.96);
+}
+
+/* Honor reduced-motion: keep end-states, drop the animation */
+@media (prefers-reduced-motion: reduce) {
+	.hpv-mixed-gallery .upload-disclosure-panel,
+	.hpv-mixed-gallery .mg-toggle-icon,
+	.hpv-mixed-gallery .mg-accent-btn {
+		transition: none;
+	}
+}
+
+/* Source toggle (Origem do arquivo) — neutral grey active tab */
+.hpv-mixed-gallery .buttons.has-addons .button.mg-tab-active {
+	background-color: #f1f5f9;
+	border-color: #cbd5e1;
+	color: var(--mg-text-main);
+	box-shadow: none;
+}
+
+/* Dropzone */
+.hpv-mixed-gallery .photon-dropzone {
+	border: 1px dashed #cbd5e1;
+	background-color: #ffffff;
+	border-radius: 8px;
+	padding: 2rem 1.5rem;
+	text-align: center;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+.hpv-mixed-gallery .photon-dropzone:hover,
+.hpv-mixed-gallery .photon-dropzone.is-dragover {
+	border-color: #3b82f6;
+	background-color: #f8fafc;
+}
+.hpv-mixed-gallery .mg-up-icon {
+	color: #64748b;
+}
+.hpv-mixed-gallery .mg-cam-icon {
+	color: #f97316;
+}
+
+/* Empty state */
+.hpv-mixed-gallery .empty-state-wrapper {
+	padding: 2.5rem 1rem;
+	text-align: center;
+	border: 1px solid var(--mg-border);
+	border-radius: 8px;
+	background-color: #ffffff;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+.hpv-mixed-gallery .mg-empty-icon {
+	color: #cbd5e1;
+}
+.hpv-mixed-gallery .mg-empty-title {
+	color: var(--mg-text-main);
+	font-weight: 600;
+}
+.hpv-mixed-gallery .mg-empty-text {
+	max-width: 320px;
+	line-height: 1.5;
+}
+.hpv-mixed-gallery .mg-empty-btn {
+	border-radius: 6px;
+	font-weight: 500;
+}
+
+/* File preview mini-views */
+.hpv-mixed-gallery .mini-view {
+	width: 100%;
+	height: 128px;
+	background-color: #f8fafc;
+	border-radius: 6px 6px 0 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	overflow: hidden;
+}
+.hpv-mixed-gallery .mini-view::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	opacity: 0.25;
+	pointer-events: none;
+}
+.hpv-mixed-gallery .mini-view.pdf-indicator::before {
+	background: linear-gradient(to bottom, transparent 11px, #e2e8f0 12px);
+	background-size: 100% 12px;
+}
+.hpv-mixed-gallery .mini-view.xls-indicator::before {
+	background-image:
+		linear-gradient(to right, #cbd5e1 1px, transparent 1px),
+		linear-gradient(to bottom, #cbd5e1 1px, transparent 1px);
+	background-size: 14px 14px;
+}
+.hpv-mixed-gallery .mg-z2 {
+	z-index: 2;
+}
+.hpv-mixed-gallery .mg-img-view {
+	background-color: #cbd5e1;
+}
+.hpv-mixed-gallery .mg-img-icon {
+	color: #475569;
+	font-size: 2.2rem;
+}
+.hpv-mixed-gallery .mg-pdf-icon {
+	color: #ef4444;
+	font-size: 2.2rem;
+}
+.hpv-mixed-gallery .mg-xls-icon {
+	color: #22c55e;
+	font-size: 2.2rem;
+}
+.hpv-mixed-gallery .mg-file-icon {
+	color: #64748b;
+	font-size: 2.2rem;
+}
+
+/* Format badge */
+.hpv-mixed-gallery .format-badge {
+	position: absolute;
+	bottom: 8px;
+	right: 8px;
+	font-size: 8px;
+	font-weight: 700;
+	padding: 2px 6px;
+	border-radius: 4px;
+	text-transform: uppercase;
+	color: #ffffff;
+	letter-spacing: 0.05em;
+}
+.hpv-mixed-gallery .badge-pdf {
+	background-color: #ef4444;
+}
+.hpv-mixed-gallery .badge-xls {
+	background-color: #22c55e;
+}
+
+/* Library cards */
+.hpv-mixed-gallery .library-card {
+	border: 1px solid var(--mg-border);
+	border-radius: 8px;
+	overflow: hidden;
+	background-color: #ffffff;
+	transition:
+		border-color 0.15s ease,
+		transform 0.15s ease;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+}
+.hpv-mixed-gallery .library-card:hover {
+	border-color: #cbd5e1;
+	transform: translateY(-2px);
+}
+.hpv-mixed-gallery .library-card-info {
+	padding: 0.85rem;
+	flex-grow: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+.hpv-mixed-gallery .mg-card-meta {
+	min-width: 0;
+	flex-grow: 1;
+	padding-right: 8px;
+}
+.hpv-mixed-gallery .library-title {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--mg-text-main);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-bottom: 3px;
+}
+.hpv-mixed-gallery .library-meta {
+	font-size: 11px;
+	color: var(--mg-text-sub);
+}
+
+.hpv-mixed-gallery .btn-delete-asset {
+	background: none;
+	border: none;
+	color: #94a3b8;
+	cursor: pointer;
+	padding: 5px;
+	border-radius: 4px;
+	transition:
+		color 0.1s,
+		background-color 0.1s;
+}
+.hpv-mixed-gallery .btn-delete-asset:hover {
+	color: #ef4444;
+	background-color: #f1f5f9;
+}

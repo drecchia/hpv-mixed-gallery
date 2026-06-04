@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>hpv-mixed-gallery — demo</title>
+		<!-- Bulma CSS 1.0.3 -->
+		<link
+			rel="stylesheet"
+			href="https://cdn.jsdelivr.net/npm/bulma@1.0.3/css/bulma.min.css"
+		/>
+		<!-- FontAwesome 6 -->
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+		/>
+		<!-- Component styles -->
+		<link rel="stylesheet" href="src/css/hpv-mixed-gallery.css" />
+		<style>
+			body {
+				background-color: #f8fafc;
+				font-family:
+					-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+					sans-serif;
+				min-height: 100vh;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 1.5rem;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="media-library"></div>
+
+		<script src="src/js/hpv-mixed-gallery.js"></script>
+		<script>
+			const gallery = new HpvMixedGallery('media-library', {
+				items: [
+					{
+						name: 'relatorio_config.pdf',
+						size: '2.4 MB',
+						ext: 'PDF',
+					},
+					{
+						name: 'inventario_rack.xlsx',
+						size: '512 KB',
+						ext: 'XLSX',
+					},
+				],
+				onAdd: (c, asset) => console.log('add', asset),
+				onRemove: (c, id) => console.log('remove', id),
+				onSave: (c, assets) =>
+					alert(`Galeria salva com ${assets.length} item(ns)!`),
+			});
+		</script>
+	</body>
+</html>
