@@ -23,6 +23,7 @@ class HpvMixedGallery {
 			// --- behavior
 			accept: '', // native <input> accept attribute, e.g. '.pdf,.jpg'
 			enableCamera: true, // show the "Captura de Câmera" tab
+			animate: true, // micro-interactions (panel reveal, icon morph, button feedback)
 			// --- callbacks
 			onAdd: null, // fn(component, asset)
 			onRemove: null, // fn(component, id, asset)
@@ -64,7 +65,7 @@ class HpvMixedGallery {
 	_createElements() {
 		const o = this.options;
 		this.container.innerHTML = `
-			<div class="hpv-mixed-gallery">
+			<div class="hpv-mixed-gallery${o.animate ? '' : ' mg-no-motion'}">
 				<div class="columns is-mobile is-vcentered mb-5">
 					<div class="column">
 						<h1 class="title is-5 mb-1 mg-title">${o.title}</h1>
@@ -432,9 +433,18 @@ class HpvMixedGallery {
 	}
 
 	_escape(str) {
-		const div = document.createElement('div');
-		div.textContent = str + '';
-		return div.innerHTML;
+		// Escapes both text and attribute contexts (quotes included).
+		return (str + '').replace(
+			/[&<>"']/g,
+			(c) =>
+				({
+					'&': '&amp;',
+					'<': '&lt;',
+					'>': '&gt;',
+					'"': '&quot;',
+					"'": '&#39;',
+				})[c],
+		);
 	}
 
 	_formatSize(bytes) {

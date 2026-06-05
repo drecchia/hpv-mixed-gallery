@@ -35,6 +35,7 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 | `saveLabel`   | string   | `'Salvar Galeria'` | Footer button label.                    |
 | `accept`      | string   | `''`               | Native `<input accept>` filter.         |
 | `enableCamera`| boolean  | `true`             | Show the "Captura de Câmera" tab.       |
+| `animate`     | boolean  | `true`             | Micro-interactions; set `false` to disable. |
 | `onAdd`       | function | `null`             | `fn(component, asset)`                   |
 | `onRemove`    | function | `null`             | `fn(component, id, asset)`              |
 | `onSave`      | function | `null`             | `fn(component, assets)`                  |

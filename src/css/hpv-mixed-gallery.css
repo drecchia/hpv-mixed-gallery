@@ -100,6 +100,13 @@
 	transform: scale(0.96);
 }
 
+/* Drop animation when opted out via { animate: false } — keep end-states */
+.hpv-mixed-gallery.mg-no-motion .upload-disclosure-panel,
+.hpv-mixed-gallery.mg-no-motion .mg-toggle-icon,
+.hpv-mixed-gallery.mg-no-motion .mg-accent-btn {
+	transition: none;
+}
+
 /* Honor reduced-motion: keep end-states, drop the animation */
 @media (prefers-reduced-motion: reduce) {
 	.hpv-mixed-gallery .upload-disclosure-panel,
