@@ -65,7 +65,7 @@ class HpvMixedGallery {
 			onAdd: null, // fn(component, asset)
 			onRemove: null, // fn(component, id, asset)
 			onReject: null, // fn(component, file, reason) — e.g. file too large
-			onImageClick: null, // fn(component, asset, id) — image-type card clicked
+			onItemClick: null, // fn(component, asset, id) — any card clicked
 			onSave: null, // fn(component, assets)
 			onCreate: null, // fn(component)
 			isDebug: false,
@@ -397,29 +397,30 @@ class HpvMixedGallery {
 	}
 
 	_renderPreview(a) {
-		// Image cards are clickable (data-action="preview") — fires onImageClick.
+		// Every card's preview is clickable (data-action="item") — fires onItemClick.
+		const attrs = `data-action="item" data-id="${a.id}"`;
 		if (this._isImage(a.ext)) {
 			// real thumbnail when the asset has a url, else a placeholder icon
 			const inner = a.url
 				? `<img class="mg-thumb" src="${this._escape(a.url)}" alt="${this._escape(a.name)}" loading="lazy" draggable="false">`
 				: `<i class="fa-regular fa-image mg-img-icon"></i>`;
-			return `<div class="mini-view mg-img-view" data-action="preview" data-id="${a.id}">${inner}</div>`;
+			return `<div class="mini-view mg-img-view" ${attrs}>${inner}</div>`;
 		}
 		if (a.ext === 'PDF') {
 			return `
-				<div class="mini-view pdf-indicator">
+				<div class="mini-view pdf-indicator" ${attrs}>
 					<span class="icon is-large mg-z2"><i class="fa-regular fa-file-pdf mg-pdf-icon"></i></span>
 					<span class="format-badge badge-pdf mg-z2">${this._escape(a.ext)}</span>
 				</div>`;
 		}
 		if (['XLS', 'XLSX', 'CSV'].includes(a.ext)) {
 			return `
-				<div class="mini-view xls-indicator">
+				<div class="mini-view xls-indicator" ${attrs}>
 					<span class="icon is-large mg-z2"><i class="fa-regular fa-file-excel mg-xls-icon"></i></span>
 					<span class="format-badge badge-xls mg-z2">${this._escape(a.ext)}</span>
 				</div>`;
 		}
-		return `<div class="mini-view"><span class="icon is-large mg-z2"><i class="fa-regular fa-file mg-file-icon"></i></span></div>`;
+		return `<div class="mini-view" ${attrs}><span class="icon is-large mg-z2"><i class="fa-regular fa-file mg-file-icon"></i></span></div>`;
 	}
 
 	// -------------------------------------------------------------------------
@@ -452,10 +453,10 @@ class HpvMixedGallery {
 			case 'camera':
 				this._simulateCameraSnap();
 				break;
-			case 'preview': {
+			case 'item': {
 				const asset = this.items.get(trigger.dataset.id + '');
-				if (asset && this.options.onImageClick)
-					this.options.onImageClick(this, asset, asset.id);
+				if (asset && this.options.onItemClick)
+					this.options.onItemClick(this, asset, asset.id);
 				break;
 			}
 			case 'remove':
@@ -567,7 +568,7 @@ class HpvMixedGallery {
 			size: this._formatSize(file.size),
 			ext: this._extOf(file.name),
 		};
-		// Image files get an object URL so they're previewable via onImageClick.
+		// Image files get an object URL so they're previewable via onItemClick.
 		let createdUrl = null;
 		if (this._isImage(asset.ext)) {
 			createdUrl = URL.createObjectURL(file);

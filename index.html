@@ -14,7 +14,7 @@
 			rel="stylesheet"
 			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
 		/>
-		<!-- hpv-image-previewer (demo-only, for the onImageClick lightbox) -->
+		<!-- hpv-image-previewer (demo-only, for the onItemClick lightbox) -->
 		<link
 			rel="stylesheet"
 			href="https://cdn.jsdelivr.net/npm/hpv-image-previewer@1.0.2/dist/css/all.css"
@@ -41,9 +41,9 @@
 		<script src="https://cdn.jsdelivr.net/npm/hpv-image-previewer@1.0.2/dist/js/all.min.js"></script>
 		<script src="src/js/hpv-mixed-gallery.js"></script>
 		<script>
-			// Demo-only: open an HpvImagePreviewer lightbox when an image card is
-			// clicked. The gallery component itself only fires onImageClick — the
-			// previewer wiring lives here in the host page.
+			// Demo-only: the gallery fires onItemClick for ANY card; the host
+			// decides what to do based on the asset's type/extension. Here, image
+			// items open an HpvImagePreviewer lightbox.
 			const previewer = new HpvImagePreviewer({
 				closeButtonText: 'Fechar',
 			});
@@ -77,7 +77,23 @@
 				],
 				onAdd: (c, asset) => console.log('add', asset),
 				onRemove: (c, id) => console.log('remove', id),
-				onImageClick: (c, asset) => {
+				onItemClick: (c, asset) => {
+					// type/extension decides what a click does
+					const isImage = [
+						'JPG',
+						'JPEG',
+						'PNG',
+						'GIF',
+						'WEBP',
+					].includes((asset.ext || '').toUpperCase());
+					if (!isImage) {
+						console.log(
+							'item clicked (no preview):',
+							asset.name,
+							asset.ext,
+						);
+						return;
+					}
 					// previewable images = image assets that have a url
 					const imgs = c.getImages().filter((a) => a.url);
 					const list = imgs.map((a) => ({ url: a.url, alt: a.name }));

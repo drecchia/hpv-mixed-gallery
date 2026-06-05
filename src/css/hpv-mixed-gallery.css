@@ -210,12 +210,12 @@
 .hpv-mixed-gallery .mg-z2 {
 	z-index: 2;
 }
-/* Clickable image preview (opens via onImageClick) */
-.hpv-mixed-gallery .mini-view[data-action='preview'] {
+/* Clickable card preview (fires onItemClick for any type) */
+.hpv-mixed-gallery .mini-view[data-action='item'] {
 	cursor: pointer;
 	transition: filter 0.12s ease;
 }
-.hpv-mixed-gallery .mini-view[data-action='preview']:hover {
+.hpv-mixed-gallery .mini-view[data-action='item']:hover {
 	filter: brightness(0.95);
 }
 .hpv-mixed-gallery .mg-img-view {

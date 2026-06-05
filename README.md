@@ -40,7 +40,7 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 | `onAdd`         | function | `null`  | `fn(component, asset)`                   |
 | `onRemove`      | function | `null`  | `fn(component, id, asset)`              |
 | `onReject`      | function | `null`  | `fn(component, file, reason)` — e.g. `'too-large'`. |
-| `onImageClick`  | function | `null`  | `fn(component, asset, id)` — fired when an image-type card is clicked. |
+| `onItemClick`   | function | `null`  | `fn(component, asset, id)` — fired when any card is clicked; branch on `asset.ext`. |
 | `onSave`        | function | `null`  | `fn(component, assets)`                  |
 | `onCreate`      | function | `null`  | `fn(component)`                          |
 | `isDebug`       | boolean  | `false` | Routes `debug()` to `console`.          |
@@ -68,13 +68,13 @@ new HpvMixedGallery('id', {
 `openUpload()` / `closeUpload()` / `toggleUpload()` ·
 `setMethod('local' | 'camera')` · `destroy()`
 
-### Image click / previewer
+### Item click / previewer
 
-Image-type cards (`jpg/jpeg/png/gif/webp`) are clickable and fire
-`onImageClick(component, asset, id)`. The component ships **no** previewer —
-wire one in the host page. `getImages()` returns the image assets so you can
-open a gallery lightbox. `index.html` demonstrates the pattern with
-`HpvImagePreviewer.showGallery(images, index)`.
+Every card is clickable and fires `onItemClick(component, asset, id)`. Branch on
+`asset.ext` to decide what a click does (preview an image, open a PDF, …). The
+component ships **no** previewer — wire one in the host page. `getImages()`
+returns the image assets so you can open a gallery lightbox. `index.html`
+demonstrates the pattern: image items open `HpvImagePreviewer.showGallery(images, index)`.
 
 Each image asset has a `url`: uploaded image files get an object URL
 automatically (created on add, revoked on remove/`clear()`/`destroy()` — the
