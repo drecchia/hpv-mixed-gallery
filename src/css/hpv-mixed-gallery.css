@@ -210,6 +210,14 @@
 .hpv-mixed-gallery .mg-z2 {
 	z-index: 2;
 }
+/* Clickable image preview (opens via onImageClick) */
+.hpv-mixed-gallery .mini-view[data-action='preview'] {
+	cursor: pointer;
+	transition: filter 0.12s ease;
+}
+.hpv-mixed-gallery .mini-view[data-action='preview']:hover {
+	filter: brightness(0.95);
+}
 .hpv-mixed-gallery .mg-img-view {
 	background-color: #cbd5e1;
 }

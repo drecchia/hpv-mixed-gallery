@@ -65,6 +65,7 @@ class HpvMixedGallery {
 			onAdd: null, // fn(component, asset)
 			onRemove: null, // fn(component, id, asset)
 			onReject: null, // fn(component, file, reason) — e.g. file too large
+			onImageClick: null, // fn(component, asset, id) — image-type card clicked
 			onSave: null, // fn(component, assets)
 			onCreate: null, // fn(component)
 			isDebug: false,
@@ -268,14 +269,14 @@ class HpvMixedGallery {
 	}
 
 	getAssets() {
-		return Array.from(this.items.values()).map(
-			({ id, name, size, ext }) => ({
-				id,
-				name,
-				size,
-				ext,
-			}),
-		);
+		return Array.from(this.items.values()).map((a) => ({ ...a }));
+	}
+
+	// Image-type assets only (handy for wiring a previewer/lightbox).
+	getImages() {
+		return Array.from(this.items.values())
+			.filter((a) => this._isImage(a.ext))
+			.map((a) => ({ ...a }));
 	}
 
 	getCount() {
@@ -322,6 +323,7 @@ class HpvMixedGallery {
 			size: asset.size || '',
 			ext,
 		};
+		if (asset.url) stored.url = asset.url + ''; // optional preview source
 		this.items.set(id, stored);
 		this._grid.insertAdjacentHTML('beforeend', this._renderCard(stored));
 		if (animateIn) this._enterCardNode(this._grid.lastElementChild);
@@ -364,7 +366,7 @@ class HpvMixedGallery {
 		return `
 			<div class="column is-4-desktop is-4-tablet is-6-mobile" data-id="${a.id}">
 				<div class="library-card">
-					${this._renderPreview(a.ext)}
+					${this._renderPreview(a)}
 					<div class="library-card-info">
 						<div class="is-flex is-justify-content-between is-align-items-center">
 							<div class="mg-card-meta">
@@ -390,22 +392,23 @@ class HpvMixedGallery {
 			</div>`;
 	}
 
-	_renderPreview(ext) {
-		if (['PNG', 'JPG', 'JPEG', 'GIF', 'WEBP'].includes(ext)) {
-			return `<div class="mini-view mg-img-view"><i class="fa-regular fa-image mg-img-icon"></i></div>`;
+	_renderPreview(a) {
+		// Image cards are clickable (data-action="preview") — fires onImageClick.
+		if (this._isImage(a.ext)) {
+			return `<div class="mini-view mg-img-view" data-action="preview" data-id="${a.id}"><i class="fa-regular fa-image mg-img-icon"></i></div>`;
 		}
-		if (ext === 'PDF') {
+		if (a.ext === 'PDF') {
 			return `
 				<div class="mini-view pdf-indicator">
 					<span class="icon is-large mg-z2"><i class="fa-regular fa-file-pdf mg-pdf-icon"></i></span>
-					<span class="format-badge badge-pdf mg-z2">${this._escape(ext)}</span>
+					<span class="format-badge badge-pdf mg-z2">${this._escape(a.ext)}</span>
 				</div>`;
 		}
-		if (['XLS', 'XLSX', 'CSV'].includes(ext)) {
+		if (['XLS', 'XLSX', 'CSV'].includes(a.ext)) {
 			return `
 				<div class="mini-view xls-indicator">
 					<span class="icon is-large mg-z2"><i class="fa-regular fa-file-excel mg-xls-icon"></i></span>
-					<span class="format-badge badge-xls mg-z2">${this._escape(ext)}</span>
+					<span class="format-badge badge-xls mg-z2">${this._escape(a.ext)}</span>
 				</div>`;
 		}
 		return `<div class="mini-view"><span class="icon is-large mg-z2"><i class="fa-regular fa-file mg-file-icon"></i></span></div>`;
@@ -441,6 +444,12 @@ class HpvMixedGallery {
 			case 'camera':
 				this._simulateCameraSnap();
 				break;
+			case 'preview': {
+				const asset = this.items.get(trigger.dataset.id + '');
+				if (asset && this.options.onImageClick)
+					this.options.onImageClick(this, asset, asset.id);
+				break;
+			}
 			case 'remove':
 				this._requestRemove(trigger.dataset.id);
 				break;
@@ -668,6 +677,12 @@ class HpvMixedGallery {
 	_extOf(name) {
 		const parts = (name + '').split('.');
 		return parts.length > 1 ? parts.pop() : '';
+	}
+
+	_isImage(ext) {
+		return ['PNG', 'JPG', 'JPEG', 'GIF', 'WEBP'].includes(
+			(ext || '').toUpperCase(),
+		);
 	}
 
 	_escape(str) {

@@ -28,7 +28,7 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 
 | Option          | Type     | Default | Notes                                   |
 | --------------- | -------- | ------- | --------------------------------------- |
-| `items`         | array    | `[]`    | Initial assets `{ name, size, ext }`.   |
+| `items`         | array    | `[]`    | Initial assets `{ name, size, ext }` (optional `url` for previewing). |
 | `accept`        | string   | `''`    | Native `<input accept>` filter.         |
 | `maxSizeMB`     | number   | `15`    | Reject files larger than this; `0`/`null` = no limit. |
 | `maxItems`      | number   | `0`     | Max assets the gallery can hold; `0` = unlimited.     |
@@ -40,6 +40,7 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 | `onAdd`         | function | `null`  | `fn(component, asset)`                   |
 | `onRemove`      | function | `null`  | `fn(component, id, asset)`              |
 | `onReject`      | function | `null`  | `fn(component, file, reason)` — e.g. `'too-large'`. |
+| `onImageClick`  | function | `null`  | `fn(component, asset, id)` — fired when an image-type card is clicked. |
 | `onSave`        | function | `null`  | `fn(component, assets)`                  |
 | `onCreate`      | function | `null`  | `fn(component)`                          |
 | `isDebug`       | boolean  | `false` | Routes `debug()` to `console`.          |
@@ -62,9 +63,18 @@ new HpvMixedGallery('id', {
 
 ## Public API
 
-`addAsset({name, size, ext})` → id · `removeAsset(id)` · `getAssets()` ·
-`getCount()` · `clear()` · `openUpload()` / `closeUpload()` / `toggleUpload()` ·
+`addAsset({name, size, ext, url?})` → id · `removeAsset(id)` · `getAssets()` ·
+`getImages()` (image-type assets only) · `getCount()` · `clear()` ·
+`openUpload()` / `closeUpload()` / `toggleUpload()` ·
 `setMethod('local' | 'camera')` · `destroy()`
+
+### Image click / previewer
+
+Image-type cards (`jpg/jpeg/png/gif/webp`) are clickable and fire
+`onImageClick(component, asset, id)`. The component ships **no** previewer —
+wire one in the host page. Assets may carry an optional `url`; `getImages()`
+returns the image assets so you can open a gallery lightbox. `index.html`
+demonstrates the pattern with `HpvImagePreviewer.showGallery(images, index)`.
 
 ## Behavior notes vs. the prototype
 

@@ -14,6 +14,11 @@
 			rel="stylesheet"
 			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
 		/>
+		<!-- hpv-image-previewer (demo-only, for the onImageClick lightbox) -->
+		<link
+			rel="stylesheet"
+			href="https://cdn.jsdelivr.net/npm/hpv-image-previewer@1.0.2/dist/css/all.css"
+		/>
 		<!-- Component styles -->
 		<link rel="stylesheet" href="src/css/hpv-mixed-gallery.css" />
 		<style>
@@ -33,11 +38,32 @@
 	<body>
 		<div id="media-library"></div>
 
+		<script src="https://cdn.jsdelivr.net/npm/hpv-image-previewer@1.0.2/dist/js/all.min.js"></script>
 		<script src="src/js/hpv-mixed-gallery.js"></script>
 		<script>
+			// Demo-only: open an HpvImagePreviewer lightbox when an image card is
+			// clicked. The gallery component itself only fires onImageClick — the
+			// previewer wiring lives here in the host page.
+			const previewer = new HpvImagePreviewer({
+				closeButtonText: 'Fechar',
+			});
+
 			const gallery = new HpvMixedGallery('media-library', {
 				maxItems: 6,
 				items: [
+					// image assets carry a `url` so the previewer has something to show
+					{
+						name: 'rack_frontal.jpg',
+						size: '1.2 MB',
+						ext: 'JPG',
+						url: 'https://picsum.photos/seed/rack1/1024/768',
+					},
+					{
+						name: 'rack_traseiro.jpg',
+						size: '1.4 MB',
+						ext: 'JPG',
+						url: 'https://picsum.photos/seed/rack2/1024/768',
+					},
 					{
 						name: 'relatorio_config.pdf',
 						size: '2.4 MB',
@@ -51,6 +77,14 @@
 				],
 				onAdd: (c, asset) => console.log('add', asset),
 				onRemove: (c, id) => console.log('remove', id),
+				onImageClick: (c, asset) => {
+					// previewable images = image assets that have a url
+					const imgs = c.getImages().filter((a) => a.url);
+					const list = imgs.map((a) => ({ url: a.url, alt: a.name }));
+					const index = imgs.findIndex((a) => a.id === asset.id);
+					if (index >= 0) previewer.showGallery(list, index);
+					else console.log('no preview url for', asset.name);
+				},
 				onSave: (c, assets) =>
 					alert(`Galeria salva com ${assets.length} item(ns)!`),
 			});
