@@ -221,6 +221,12 @@
 .hpv-mixed-gallery .mg-img-view {
 	background-color: #cbd5e1;
 }
+.hpv-mixed-gallery .mg-thumb {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
 .hpv-mixed-gallery .mg-img-icon {
 	color: #475569;
 	font-size: 2.2rem;

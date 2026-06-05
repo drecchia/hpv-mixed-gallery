@@ -72,9 +72,14 @@ new HpvMixedGallery('id', {
 
 Image-type cards (`jpg/jpeg/png/gif/webp`) are clickable and fire
 `onImageClick(component, asset, id)`. The component ships **no** previewer —
-wire one in the host page. Assets may carry an optional `url`; `getImages()`
-returns the image assets so you can open a gallery lightbox. `index.html`
-demonstrates the pattern with `HpvImagePreviewer.showGallery(images, index)`.
+wire one in the host page. `getImages()` returns the image assets so you can
+open a gallery lightbox. `index.html` demonstrates the pattern with
+`HpvImagePreviewer.showGallery(images, index)`.
+
+Each image asset has a `url`: uploaded image files get an object URL
+automatically (created on add, revoked on remove/`clear()`/`destroy()` — the
+component only revokes URLs it created, never caller-supplied ones), and
+initial `items` may supply their own `url`.
 
 ## Behavior notes vs. the prototype
 

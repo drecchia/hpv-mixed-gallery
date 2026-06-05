@@ -92,6 +92,7 @@ class HpvMixedGallery {
 		this._confirmingId = null; // card currently armed for delete (one at a time)
 		this._confirmTimeout = null;
 		this._errorTimeout = null;
+		this._objectUrls = new Set(); // object URLs we created (must be revoked)
 
 		this._init();
 
@@ -263,6 +264,7 @@ class HpvMixedGallery {
 		if (this._confirmingId === id) this._disarmRemove();
 		const asset = this.items.get(id);
 		this.items.delete(id);
+		this._revokeOwnedUrl(asset);
 		const node = this._grid.querySelector(`[data-id="${id}"]`);
 		this._removeCardNode(node, () => this._updateTotal());
 		if (this.options.onRemove) this.options.onRemove(this, id, asset);
@@ -285,6 +287,7 @@ class HpvMixedGallery {
 
 	clear() {
 		this._disarmRemove();
+		this._revokeAllOwnedUrls();
 		this.items.clear();
 		while (this._grid.firstChild) this._grid.firstChild.remove();
 		this._updateTotal();
@@ -293,6 +296,7 @@ class HpvMixedGallery {
 	destroy() {
 		if (this._confirmTimeout) clearTimeout(this._confirmTimeout);
 		if (this._errorTimeout) clearTimeout(this._errorTimeout);
+		this._revokeAllOwnedUrls();
 		this.container.removeEventListener('click', this._onClick);
 		this.container.removeEventListener('change', this._onFileChange);
 		this.container.removeEventListener('dragover', this._onDragOver);
@@ -395,7 +399,11 @@ class HpvMixedGallery {
 	_renderPreview(a) {
 		// Image cards are clickable (data-action="preview") — fires onImageClick.
 		if (this._isImage(a.ext)) {
-			return `<div class="mini-view mg-img-view" data-action="preview" data-id="${a.id}"><i class="fa-regular fa-image mg-img-icon"></i></div>`;
+			// real thumbnail when the asset has a url, else a placeholder icon
+			const inner = a.url
+				? `<img class="mg-thumb" src="${this._escape(a.url)}" alt="${this._escape(a.name)}" loading="lazy" draggable="false">`
+				: `<i class="fa-regular fa-image mg-img-icon"></i>`;
+			return `<div class="mini-view mg-img-view" data-action="preview" data-id="${a.id}">${inner}</div>`;
 		}
 		if (a.ext === 'PDF') {
 			return `
@@ -554,11 +562,22 @@ class HpvMixedGallery {
 			return;
 		}
 		this._clearUploadError();
-		this.addAsset({
+		const asset = {
 			name: file.name,
 			size: this._formatSize(file.size),
 			ext: this._extOf(file.name),
-		});
+		};
+		// Image files get an object URL so they're previewable via onImageClick.
+		let createdUrl = null;
+		if (this._isImage(asset.ext)) {
+			createdUrl = URL.createObjectURL(file);
+			asset.url = createdUrl;
+		}
+		const id = this.addAsset(asset);
+		if (createdUrl) {
+			if (id) this._objectUrls.add(createdUrl);
+			else URL.revokeObjectURL(createdUrl); // rejected (e.g. full) — don't leak
+		}
 	}
 
 	_simulateCameraSnap() {
@@ -683,6 +702,19 @@ class HpvMixedGallery {
 		return ['PNG', 'JPG', 'JPEG', 'GIF', 'WEBP'].includes(
 			(ext || '').toUpperCase(),
 		);
+	}
+
+	// Revoke object URLs we created (never caller-supplied urls like the demo's).
+	_revokeOwnedUrl(asset) {
+		if (asset && asset.url && this._objectUrls.has(asset.url)) {
+			URL.revokeObjectURL(asset.url);
+			this._objectUrls.delete(asset.url);
+		}
+	}
+
+	_revokeAllOwnedUrls() {
+		this._objectUrls.forEach((u) => URL.revokeObjectURL(u));
+		this._objectUrls.clear();
 	}
 
 	_escape(str) {
