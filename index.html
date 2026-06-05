@@ -49,20 +49,51 @@
 			});
 
 			const gallery = new HpvMixedGallery('media-library', {
-				maxItems: 6,
+				maxItems: 12,
 				items: [
-					// image assets carry a `url` so the previewer has something to show
+					// image assets carry a `url` so the previewer has something to show.
+					// Varied dimensions to exercise the cover-fit thumbnail + previewer.
 					{
-						name: 'rack_frontal.jpg',
+						name: 'rack_frontal.jpg', // landscape 4:3
 						size: '1.2 MB',
 						ext: 'JPG',
 						url: 'https://picsum.photos/seed/rack1/1024/768',
 					},
 					{
-						name: 'rack_traseiro.jpg',
+						name: 'rack_traseiro.jpg', // wide 16:9
 						size: '1.4 MB',
 						ext: 'JPG',
-						url: 'https://picsum.photos/seed/rack2/1024/768',
+						url: 'https://picsum.photos/seed/rack2/1280/720',
+					},
+					{
+						name: 'rack_lateral.jpg', // portrait 2:3
+						size: '980 KB',
+						ext: 'JPG',
+						url: 'https://picsum.photos/seed/rack3/600/900',
+					},
+					{
+						name: 'etiqueta_serial.jpg', // square 1:1
+						size: '420 KB',
+						ext: 'PNG',
+						url: 'https://picsum.photos/seed/rack4/800/800',
+					},
+					{
+						name: 'painel_frontal.jpg', // panorama 8:3
+						size: '1.6 MB',
+						ext: 'JPG',
+						url: 'https://picsum.photos/seed/rack5/1600/600',
+					},
+					{
+						name: 'topo_rack.jpg', // tall 1:2
+						size: '760 KB',
+						ext: 'WEBP',
+						url: 'https://picsum.photos/seed/rack6/500/1000',
+					},
+					{
+						name: 'cabo_traseiro.jpg', // small 4:3
+						size: '180 KB',
+						ext: 'JPG',
+						url: 'https://picsum.photos/seed/rack7/480/360',
 					},
 					{
 						name: 'relatorio_config.pdf',
