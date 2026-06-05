@@ -14,18 +14,46 @@ class HpvMixedGallery {
 		this.defaultOptions = {
 			// --- data
 			items: [], // initial assets: [{ name, size, ext }]
-			// --- labels (pt-BR defaults, from the source prototype)
-			title: 'Arquivos e Imagens',
-			subtitle:
-				'Gerencie documentos técnicos e imagens anexadas de forma integrada.',
-			acceptHint: 'Formatos aceitos: PDF, XLSX, JPG, PNG até 15MB',
-			saveLabel: 'Salvar Galeria',
 			// --- behavior
 			accept: '', // native <input> accept attribute, e.g. '.pdf,.jpg'
 			maxSizeMB: 15, // reject files larger than this (0 / null = no limit)
 			enableCamera: true, // show the "Captura de Câmera" tab
 			animate: true, // micro-interactions (panel reveal, icon morph, button feedback)
 			confirmRemove: true, // require an inline confirm before deleting a card
+			cameraSnapAsset: {
+				// asset produced by the simulated camera capture
+				name: 'foto_painel_hardware.jpg',
+				size: '840 KB',
+				ext: 'JPG',
+			},
+			// --- all user-facing copy (override any single string; pt-BR defaults)
+			labels: {
+				title: 'Arquivos e Imagens',
+				subtitle:
+					'Gerencie documentos técnicos e imagens anexadas de forma integrada.',
+				addButton: 'Adicionar', // toggle, panel closed
+				closeButton: 'Fechar', // toggle, panel open
+				sourceLabel: 'Origem do arquivo:',
+				tabLocal: 'Upload Local',
+				tabCamera: 'Captura de Câmera',
+				localTitle: 'Clique para buscar ou arraste seu arquivo para cá',
+				acceptHint: 'Formatos aceitos: PDF, XLSX, JPG, PNG até 15MB',
+				cameraTitle: 'Capturar da Câmera',
+				cameraHint:
+					'Conectando câmera do terminal ou tablet integrado...',
+				sectionTitle: 'Itens Salvos',
+				emptyTitle: 'Nenhum arquivo anexado',
+				emptyText:
+					'Comece a compilar seu inventário subindo fotos técnicas do rack ou relatórios PDF de configuração.',
+				emptyButton: 'Anexar Primeiro Arquivo',
+				saveButton: 'Salvar Galeria',
+				removeTitle: 'Remover',
+				confirmRemoveTitle: 'Confirmar remoção',
+				cancelTitle: 'Cancelar',
+				counter: (n) => `Mostrando ${n} item(ns)`, // fn(count) => string
+				tooLarge: (name, limitMB, sizeText) =>
+					`"${name}" excede o limite de ${limitMB} MB (tem ${sizeText}).`,
+			},
 			// --- callbacks
 			onAdd: null, // fn(component, asset)
 			onRemove: null, // fn(component, id, asset)
@@ -36,6 +64,11 @@ class HpvMixedGallery {
 		};
 
 		this.options = { ...this.defaultOptions, ...options };
+		// labels merge one level deep so callers can override individual strings
+		this.options.labels = {
+			...this.defaultOptions.labels,
+			...(options.labels || {}),
+		};
 		this.container = document.getElementById(containerId);
 
 		if (!this.container)
@@ -70,29 +103,30 @@ class HpvMixedGallery {
 
 	_createElements() {
 		const o = this.options;
+		const L = o.labels;
 		this.container.innerHTML = `
 			<div class="hpv-mixed-gallery${o.animate ? '' : ' mg-no-motion'}">
 				<div class="columns is-mobile is-vcentered mb-5">
 					<div class="column">
-						<h1 class="title is-5 mb-1 mg-title">${o.title}</h1>
-						<p class="subtitle is-7 mb-0 mg-subtitle">${o.subtitle}</p>
+						<h1 class="title is-5 mb-1 mg-title">${L.title}</h1>
+						<p class="subtitle is-7 mb-0 mg-subtitle">${L.subtitle}</p>
 					</div>
 					<div class="column is-narrow">
 						<button class="button is-small is-dark mg-accent-btn" data-action="toggle-upload">
 							<span class="icon is-small"><i class="fa-solid fa-plus mg-toggle-icon" data-role="toggle-icon"></i></span>
-							<span data-role="toggle-text">Adicionar</span>
+							<span data-role="toggle-text">${L.addButton}</span>
 						</button>
 					</div>
 				</div>
 
 				<div class="upload-disclosure-panel" data-role="upload-panel">
 					<div class="field mb-3">
-						<label class="label is-size-7 mg-subtitle">Origem do arquivo:</label>
+						<label class="label is-size-7 mg-subtitle">${L.sourceLabel}</label>
 						<div class="buttons has-addons mb-0">
-							<button class="button is-small is-selected mg-tab-active" data-action="method" data-method="local" data-role="tab-local">Upload Local</button>
+							<button class="button is-small is-selected mg-tab-active" data-action="method" data-method="local" data-role="tab-local">${L.tabLocal}</button>
 							${
 								o.enableCamera
-									? `<button class="button is-small" data-action="method" data-method="camera" data-role="tab-camera">Captura de Câmera</button>`
+									? `<button class="button is-small" data-action="method" data-method="camera" data-role="tab-camera">${L.tabCamera}</button>`
 									: ''
 							}
 						</div>
@@ -102,23 +136,23 @@ class HpvMixedGallery {
 				</div>
 
 				<div class="mb-5">
-					<h2 class="is-size-7 has-text-weight-bold has-text-grey mg-section-title mb-4">Itens Salvos</h2>
+					<h2 class="is-size-7 has-text-weight-bold has-text-grey mg-section-title mb-4">${L.sectionTitle}</h2>
 					<div class="columns is-multiline is-mobile" data-role="grid" style="display: none;"></div>
 					<div class="empty-state-wrapper" data-role="empty">
 						<div class="mb-2 mg-empty-icon">
 							<span class="icon is-large"><i class="fa-regular fa-folder-open fa-3x"></i></span>
 						</div>
-						<h3 class="title is-6 mb-2 mg-empty-title">Nenhum arquivo anexado</h3>
-						<p class="is-size-7 has-text-grey mb-4 mg-empty-text">Comece a compilar seu inventário subindo fotos técnicas do rack ou relatórios PDF de configuração.</p>
+						<h3 class="title is-6 mb-2 mg-empty-title">${L.emptyTitle}</h3>
+						<p class="is-size-7 has-text-grey mb-4 mg-empty-text">${L.emptyText}</p>
 						<button class="button is-small is-light mg-empty-btn" data-action="open-upload">
-							<i class="fa-solid fa-plus-circle mr-1"></i> Anexar Primeiro Arquivo
+							<i class="fa-solid fa-plus-circle mr-1"></i> ${L.emptyButton}
 						</button>
 					</div>
 				</div>
 
 				<div class="is-flex is-justify-content-space-between is-align-items-center pt-4 mg-footer">
-					<span class="is-size-7 has-text-grey mg-counter" data-role="counter">Mostrando 0 item(ns)</span>
-					<button class="button is-small is-dark mg-accent-btn mg-save-btn" data-action="save">${o.saveLabel}</button>
+					<span class="is-size-7 has-text-grey mg-counter" data-role="counter">${L.counter(0)}</span>
+					<button class="button is-small is-dark mg-accent-btn mg-save-btn" data-action="save">${L.saveButton}</button>
 				</div>
 
 				<input type="file" data-role="file-input" style="display: none;" ${
@@ -176,14 +210,14 @@ class HpvMixedGallery {
 		this.isUploadOpen = true;
 		this._panel.classList.add('is-open');
 		this._toggleIcon.classList.add('is-rotated'); // plus rotates into an ×
-		this._toggleText.innerText = 'Fechar';
+		this._toggleText.innerText = this.options.labels.closeButton;
 	}
 
 	closeUpload() {
 		this.isUploadOpen = false;
 		this._panel.classList.remove('is-open');
 		this._toggleIcon.classList.remove('is-rotated');
-		this._toggleText.innerText = 'Adicionar';
+		this._toggleText.innerText = this.options.labels.addButton;
 		this._clearUploadError();
 	}
 
@@ -287,23 +321,25 @@ class HpvMixedGallery {
 	}
 
 	_renderUploadArea() {
+		const L = this.options.labels;
 		if (this.uploadMethod === 'camera') {
 			return `
 				<div class="photon-dropzone" data-action="camera">
 					<span class="icon is-large mb-2 mg-cam-icon"><i class="fa-solid fa-camera fa-2x"></i></span>
-					<p class="is-size-7 has-text-weight-semibold">Capturar da Câmera</p>
-					<p class="is-size-7 has-text-grey mt-1">Conectando câmera do terminal ou tablet integrado...</p>
+					<p class="is-size-7 has-text-weight-semibold">${L.cameraTitle}</p>
+					<p class="is-size-7 has-text-grey mt-1">${L.cameraHint}</p>
 				</div>`;
 		}
 		return `
 			<div class="photon-dropzone" data-action="pick" data-role="dropzone">
 				<span class="icon is-large mb-2 mg-up-icon"><i class="fa-solid fa-cloud-arrow-up fa-2x"></i></span>
-				<p class="is-size-7 has-text-weight-semibold">Clique para buscar ou arraste seu arquivo para cá</p>
-				<p class="is-size-7 has-text-grey mt-1">${this.options.acceptHint}</p>
+				<p class="is-size-7 has-text-weight-semibold">${L.localTitle}</p>
+				<p class="is-size-7 has-text-grey mt-1">${L.acceptHint}</p>
 			</div>`;
 	}
 
 	_renderCard(a) {
+		const L = this.options.labels;
 		return `
 			<div class="column is-4-desktop is-4-tablet is-6-mobile" data-id="${a.id}">
 				<div class="library-card">
@@ -315,14 +351,14 @@ class HpvMixedGallery {
 								<p class="library-meta">${this._escape(a.size)}${a.size ? ' • ' : ''}${this._escape(a.ext)}</p>
 							</div>
 							<span class="mg-card-actions">
-								<button class="btn-delete-asset mg-trash" data-action="remove" data-id="${a.id}" title="Remover" aria-label="Remover">
+								<button class="btn-delete-asset mg-trash" data-action="remove" data-id="${a.id}" title="${this._escape(L.removeTitle)}" aria-label="${this._escape(L.removeTitle)}">
 									<i class="fa-regular fa-trash-can"></i>
 								</button>
 								<span class="mg-confirm">
-									<button class="btn-confirm-remove" data-action="remove-confirm" data-id="${a.id}" title="Confirmar remoção" aria-label="Confirmar remoção">
+									<button class="btn-confirm-remove" data-action="remove-confirm" data-id="${a.id}" title="${this._escape(L.confirmRemoveTitle)}" aria-label="${this._escape(L.confirmRemoveTitle)}">
 										<i class="fa-solid fa-check"></i>
 									</button>
-									<button class="btn-cancel-remove" data-action="remove-cancel" data-id="${a.id}" title="Cancelar" aria-label="Cancelar">
+									<button class="btn-cancel-remove" data-action="remove-cancel" data-id="${a.id}" title="${this._escape(L.cancelTitle)}" aria-label="${this._escape(L.cancelTitle)}">
 										<i class="fa-solid fa-xmark"></i>
 									</button>
 								</span>
@@ -341,14 +377,14 @@ class HpvMixedGallery {
 			return `
 				<div class="mini-view pdf-indicator">
 					<span class="icon is-large mg-z2"><i class="fa-regular fa-file-pdf mg-pdf-icon"></i></span>
-					<span class="format-badge badge-pdf mg-z2">PDF</span>
+					<span class="format-badge badge-pdf mg-z2">${this._escape(ext)}</span>
 				</div>`;
 		}
 		if (['XLS', 'XLSX', 'CSV'].includes(ext)) {
 			return `
 				<div class="mini-view xls-indicator">
 					<span class="icon is-large mg-z2"><i class="fa-regular fa-file-excel mg-xls-icon"></i></span>
-					<span class="format-badge badge-xls mg-z2">XLSX</span>
+					<span class="format-badge badge-xls mg-z2">${this._escape(ext)}</span>
 				</div>`;
 		}
 		return `<div class="mini-view"><span class="icon is-large mg-z2"><i class="fa-regular fa-file mg-file-icon"></i></span></div>`;
@@ -445,8 +481,11 @@ class HpvMixedGallery {
 		const limit = this.options.maxSizeMB;
 		if (limit && file.size > limit * 1024 * 1024) {
 			this._showUploadError(
-				`"${file.name}" excede o limite de ${limit} MB ` +
-					`(tem ${this._formatSize(file.size)}).`,
+				this.options.labels.tooLarge(
+					file.name,
+					limit,
+					this._formatSize(file.size),
+				),
 			);
 			if (this.options.onReject)
 				this.options.onReject(this, file, 'too-large');
@@ -461,11 +500,7 @@ class HpvMixedGallery {
 	}
 
 	_simulateCameraSnap() {
-		this.addAsset({
-			name: 'foto_painel_hardware.jpg',
-			size: '840 KB',
-			ext: 'JPG',
-		});
+		this.addAsset({ ...this.options.cameraSnapAsset });
 	}
 
 	// Inline delete confirmation — one card armed at a time, auto-cancels.
@@ -524,7 +559,7 @@ class HpvMixedGallery {
 
 	_updateTotal() {
 		const total = this.items.size;
-		this._counter.innerText = `Mostrando ${total} item(ns)`;
+		this._counter.innerText = this.options.labels.counter(total);
 		if (total === 0) {
 			this._grid.style.display = 'none';
 			this._empty.style.display = 'flex';

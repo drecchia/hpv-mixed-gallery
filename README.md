@@ -26,24 +26,36 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 
 ## Options
 
-| Option        | Type     | Default            | Notes                                   |
-| ------------- | -------- | ------------------ | --------------------------------------- |
-| `items`       | array    | `[]`               | Initial assets `{ name, size, ext }`.   |
-| `title`       | string   | `'Arquivos e Imagens'` | Header title.                       |
-| `subtitle`    | string   | …                  | Header subtitle.                        |
-| `acceptHint`  | string   | …                  | Dropzone helper text.                   |
-| `saveLabel`   | string   | `'Salvar Galeria'` | Footer button label.                    |
-| `accept`      | string   | `''`               | Native `<input accept>` filter.         |
-| `maxSizeMB`   | number   | `15`               | Reject files larger than this; `0`/`null` = no limit. |
-| `enableCamera`| boolean  | `true`             | Show the "Captura de Câmera" tab.       |
-| `animate`     | boolean  | `true`             | Micro-interactions; set `false` to disable. |
-| `confirmRemove`| boolean | `true`             | Inline confirm before a card is deleted. |
-| `onAdd`       | function | `null`             | `fn(component, asset)`                   |
-| `onRemove`    | function | `null`             | `fn(component, id, asset)`              |
-| `onReject`    | function | `null`             | `fn(component, file, reason)` — e.g. `'too-large'`. |
-| `onSave`      | function | `null`             | `fn(component, assets)`                  |
-| `onCreate`    | function | `null`             | `fn(component)`                          |
-| `isDebug`     | boolean  | `false`            | Routes `debug()` to `console`.          |
+| Option          | Type     | Default | Notes                                   |
+| --------------- | -------- | ------- | --------------------------------------- |
+| `items`         | array    | `[]`    | Initial assets `{ name, size, ext }`.   |
+| `accept`        | string   | `''`    | Native `<input accept>` filter.         |
+| `maxSizeMB`     | number   | `15`    | Reject files larger than this; `0`/`null` = no limit. |
+| `enableCamera`  | boolean  | `true`  | Show the "Captura de Câmera" tab.       |
+| `animate`       | boolean  | `true`  | Micro-interactions; set `false` to disable. |
+| `confirmRemove` | boolean  | `true`  | Inline confirm before a card is deleted. |
+| `cameraSnapAsset`| object  | `{ name, size, ext }` | Asset added by the simulated camera capture. |
+| `labels`        | object   | pt-BR   | All user-facing copy — see below. Merged one level deep, so override individual keys. |
+| `onAdd`         | function | `null`  | `fn(component, asset)`                   |
+| `onRemove`      | function | `null`  | `fn(component, id, asset)`              |
+| `onReject`      | function | `null`  | `fn(component, file, reason)` — e.g. `'too-large'`. |
+| `onSave`        | function | `null`  | `fn(component, assets)`                  |
+| `onCreate`      | function | `null`  | `fn(component)`                          |
+| `isDebug`       | boolean  | `false` | Routes `debug()` to `console`.          |
+
+### `labels`
+
+All copy lives here (pt-BR defaults). Strings: `title`, `subtitle`, `addButton`,
+`closeButton`, `sourceLabel`, `tabLocal`, `tabCamera`, `localTitle`, `acceptHint`,
+`cameraTitle`, `cameraHint`, `sectionTitle`, `emptyTitle`, `emptyText`,
+`emptyButton`, `saveButton`, `removeTitle`, `confirmRemoveTitle`, `cancelTitle`.
+Functions: `counter(n)` → string, `tooLarge(name, limitMB, sizeText)` → string.
+
+```js
+new HpvMixedGallery('id', {
+  labels: { title: 'Files & Images', counter: (n) => `${n} item(s)` },
+});
+```
 
 ## Public API
 
@@ -60,7 +72,7 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 - Filenames are HTML-escaped before rendering.
 - `Salvar` fires `onSave` instead of the prototype's `alert()`.
 - Oversized files are rejected (default 15 MB) with a calm inline message
-  under the dropzone — no `alert()`. The `acceptHint` text is independent, so
-  keep it in sync with `maxSizeMB` if you change the limit.
+  under the dropzone — no `alert()`. The `labels.acceptHint` text is
+  independent, so keep it in sync with `maxSizeMB` if you change the limit.
 - Deleting a card asks for confirmation in place: the trash icon morphs into
   ✓ / ✕; only one card can be armed at a time and it auto-cancels after ~4 s.
