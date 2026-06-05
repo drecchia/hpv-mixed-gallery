@@ -317,6 +317,16 @@
 	color: #dc2626;
 }
 
+/* Gallery at capacity (maxItems reached) — proactive, calm cues */
+.hpv-mixed-gallery.is-full .mg-counter {
+	color: #b45309; /* soft amber: you're at the ceiling */
+	font-weight: 600;
+}
+.hpv-mixed-gallery.is-full .photon-dropzone {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
 /* Delete confirm-in-place: trash morphs into ✓ / ✕ within the card */
 .hpv-mixed-gallery .mg-card-actions {
 	display: inline-flex;

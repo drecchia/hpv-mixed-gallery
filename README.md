@@ -31,6 +31,7 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 | `items`         | array    | `[]`    | Initial assets `{ name, size, ext }`.   |
 | `accept`        | string   | `''`    | Native `<input accept>` filter.         |
 | `maxSizeMB`     | number   | `15`    | Reject files larger than this; `0`/`null` = no limit. |
+| `maxItems`      | number   | `0`     | Max assets the gallery can hold; `0` = unlimited.     |
 | `enableCamera`  | boolean  | `true`  | Show the "Captura de Câmera" tab.       |
 | `animate`       | boolean  | `true`  | Micro-interactions; set `false` to disable. |
 | `confirmRemove` | boolean  | `true`  | Inline confirm before a card is deleted. |
@@ -49,7 +50,9 @@ All copy lives here (pt-BR defaults). Strings: `title`, `subtitle`, `addButton`,
 `closeButton`, `sourceLabel`, `tabLocal`, `tabCamera`, `localTitle`, `acceptHint`,
 `cameraTitle`, `cameraHint`, `sectionTitle`, `emptyTitle`, `emptyText`,
 `emptyButton`, `saveButton`, `removeTitle`, `confirmRemoveTitle`, `cancelTitle`.
-Functions: `counter(n)` → string, `tooLarge(name, limitMB, sizeText)` → string.
+Functions: `counter(n, max)` → string (`max` is `0` when no `maxItems` limit),
+`tooLarge(name, limitMB, sizeText)` → string, `galleryFull(max)` → string,
+`limitReached(max, rejected)` → string.
 
 ```js
 new HpvMixedGallery('id', {
@@ -76,3 +79,7 @@ new HpvMixedGallery('id', {
   independent, so keep it in sync with `maxSizeMB` if you change the limit.
 - Deleting a card asks for confirmation in place: the trash icon morphs into
   ✓ / ✕; only one card can be armed at a time and it auto-cancels after ~4 s.
+- With `maxItems` set, the footer counter shows capacity (`3 de 10`) and turns
+  amber at the ceiling. Uploads beyond the limit are blocked: a batch fills up
+  to capacity and reports the overflow; clicking a full dropzone explains how to
+  free space (remove an item) instead of opening an empty picker.

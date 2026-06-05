@@ -17,6 +17,7 @@ class HpvMixedGallery {
 			// --- behavior
 			accept: '', // native <input> accept attribute, e.g. '.pdf,.jpg'
 			maxSizeMB: 15, // reject files larger than this (0 / null = no limit)
+			maxItems: 0, // max assets the gallery can hold (0 = unlimited)
 			enableCamera: true, // show the "Captura de Câmera" tab
 			animate: true, // micro-interactions (panel reveal, icon morph, button feedback)
 			confirmRemove: true, // require an inline confirm before deleting a card
@@ -50,9 +51,15 @@ class HpvMixedGallery {
 				removeTitle: 'Remover',
 				confirmRemoveTitle: 'Confirmar remoção',
 				cancelTitle: 'Cancelar',
-				counter: (n) => `Mostrando ${n} item(ns)`, // fn(count) => string
+				// counter(count, max) — max is 0 when there is no gallery limit
+				counter: (n, max) =>
+					max ? `${n} de ${max}` : `Mostrando ${n} item(ns)`,
 				tooLarge: (name, limitMB, sizeText) =>
 					`"${name}" excede o limite de ${limitMB} MB (tem ${sizeText}).`,
+				galleryFull: (max) =>
+					`Galeria cheia (limite de ${max}). Remova um item para adicionar outro.`,
+				limitReached: (max, rejected) =>
+					`Limite de ${max} arquivos atingido — ${rejected} não adicionado(s).`,
 			},
 			// --- callbacks
 			onAdd: null, // fn(component, asset)
@@ -151,7 +158,7 @@ class HpvMixedGallery {
 				</div>
 
 				<div class="is-flex is-justify-content-space-between is-align-items-center pt-4 mg-footer">
-					<span class="is-size-7 has-text-grey mg-counter" data-role="counter">${L.counter(0)}</span>
+					<span class="is-size-7 has-text-grey mg-counter" data-role="counter">${L.counter(0, o.maxItems || 0)}</span>
 					<button class="button is-small is-dark mg-accent-btn mg-save-btn" data-action="save">${L.saveButton}</button>
 				</div>
 
@@ -161,6 +168,7 @@ class HpvMixedGallery {
 			</div>`;
 
 		// cache refs
+		this._root = this.container.querySelector('.hpv-mixed-gallery');
 		this._panel = this.container.querySelector(
 			'[data-role="upload-panel"]',
 		);
@@ -241,6 +249,7 @@ class HpvMixedGallery {
 	}
 
 	addAsset(asset) {
+		if (this._isFull()) return null; // gallery capacity backstop
 		const stored = this._insertAsset(asset);
 		if (!stored) return null;
 		if (this.options.onAdd) this.options.onAdd(this, stored);
@@ -408,7 +417,13 @@ class HpvMixedGallery {
 				this.setMethod(trigger.dataset.method);
 				break;
 			case 'pick':
-				this._fileInput.click();
+				if (this._isFull()) {
+					this._showUploadError(
+						this.options.labels.galleryFull(this.options.maxItems),
+					);
+				} else {
+					this._fileInput.click();
+				}
 				break;
 			case 'camera':
 				this._simulateCameraSnap();
@@ -432,7 +447,7 @@ class HpvMixedGallery {
 		if (!e.target.matches('[data-role="file-input"]')) return;
 		const files = e.target.files;
 		if (!files || !files.length) return;
-		Array.from(files).forEach((file) => this._addFromFile(file));
+		this._addFiles(files);
 		e.target.value = ''; // allow re-selecting the same file
 	}
 
@@ -469,11 +484,37 @@ class HpvMixedGallery {
 		this._setDragover(false);
 		const files = e.dataTransfer && e.dataTransfer.files;
 		if (!files || !files.length) return;
-		Array.from(files).forEach((file) => this._addFromFile(file));
+		this._addFiles(files);
 	}
 
 	_handleSave() {
 		if (this.options.onSave) this.options.onSave(this, this.getAssets());
+	}
+
+	// Add a batch (picker/drop): fill up to the gallery limit, report overflow.
+	_addFiles(fileList) {
+		const files = Array.from(fileList);
+		let rejectedForSpace = 0;
+		for (const file of files) {
+			if (this._isFull()) {
+				rejectedForSpace++;
+				continue;
+			}
+			this._addFromFile(file);
+		}
+		if (rejectedForSpace > 0) {
+			this._showUploadError(
+				this.options.labels.limitReached(
+					this.options.maxItems,
+					rejectedForSpace,
+				),
+			);
+		}
+	}
+
+	_isFull() {
+		const max = this.options.maxItems || 0;
+		return max > 0 && this.items.size >= max;
 	}
 
 	_addFromFile(file) {
@@ -499,6 +540,12 @@ class HpvMixedGallery {
 	}
 
 	_simulateCameraSnap() {
+		if (this._isFull()) {
+			this._showUploadError(
+				this.options.labels.galleryFull(this.options.maxItems),
+			);
+			return;
+		}
 		this.addAsset({ ...this.options.cameraSnapAsset });
 	}
 
@@ -593,7 +640,9 @@ class HpvMixedGallery {
 
 	_updateTotal() {
 		const total = this.items.size;
-		this._counter.innerText = this.options.labels.counter(total);
+		const max = this.options.maxItems || 0;
+		this._counter.innerText = this.options.labels.counter(total, max);
+		this._root.classList.toggle('is-full', this._isFull());
 		if (total === 0) {
 			this._grid.style.display = 'none';
 			this._empty.style.display = 'flex';
