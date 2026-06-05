@@ -250,7 +250,7 @@ class HpvMixedGallery {
 
 	addAsset(asset) {
 		if (this._isFull()) return null; // gallery capacity backstop
-		const stored = this._insertAsset(asset);
+		const stored = this._insertAsset(asset, true); // animate user-added cards
 		if (!stored) return null;
 		if (this.options.onAdd) this.options.onAdd(this, stored);
 		return stored.id;
@@ -312,7 +312,7 @@ class HpvMixedGallery {
 		rawItems.forEach((asset) => this._insertAsset(asset));
 	}
 
-	_insertAsset(asset) {
+	_insertAsset(asset, animateIn = false) {
 		if (!asset || !asset.name) return null;
 		const id = 'asset-' + ++this._seq;
 		const ext = (asset.ext || this._extOf(asset.name)).toUpperCase();
@@ -324,8 +324,21 @@ class HpvMixedGallery {
 		};
 		this.items.set(id, stored);
 		this._grid.insertAdjacentHTML('beforeend', this._renderCard(stored));
+		if (animateIn) this._enterCardNode(this._grid.lastElementChild);
 		this._updateTotal();
 		return stored;
+	}
+
+	// Play a one-shot entrance animation on a freshly inserted card.
+	_enterCardNode(node) {
+		if (!node || !this._shouldAnimate()) return;
+		node.classList.add('is-entering');
+		const done = (e) => {
+			if (e.target !== node) return;
+			node.classList.remove('is-entering');
+			node.removeEventListener('animationend', done);
+		};
+		node.addEventListener('animationend', done);
 	}
 
 	_renderUploadArea() {
@@ -604,7 +617,7 @@ class HpvMixedGallery {
 			if (e.target === node) finish();
 		};
 		node.addEventListener('transitionend', onEnd);
-		fallback = setTimeout(finish, 320); // safety net if transitionend is missed
+		fallback = setTimeout(finish, 420); // safety net if transitionend is missed
 		node.classList.add('is-removing'); // triggers the CSS transition
 	}
 
