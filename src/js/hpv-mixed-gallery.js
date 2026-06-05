@@ -22,11 +22,14 @@ class HpvMixedGallery {
 			saveLabel: 'Salvar Galeria',
 			// --- behavior
 			accept: '', // native <input> accept attribute, e.g. '.pdf,.jpg'
+			maxSizeMB: 15, // reject files larger than this (0 / null = no limit)
 			enableCamera: true, // show the "Captura de Câmera" tab
 			animate: true, // micro-interactions (panel reveal, icon morph, button feedback)
+			confirmRemove: true, // require an inline confirm before deleting a card
 			// --- callbacks
 			onAdd: null, // fn(component, asset)
 			onRemove: null, // fn(component, id, asset)
+			onReject: null, // fn(component, file, reason) — e.g. file too large
 			onSave: null, // fn(component, assets)
 			onCreate: null, // fn(component)
 			isDebug: false,
@@ -45,6 +48,9 @@ class HpvMixedGallery {
 		this.isUploadOpen = false;
 		this.uploadMethod = 'local'; // 'local' | 'camera'
 		this._seq = 0;
+		this._confirmingId = null; // card currently armed for delete (one at a time)
+		this._confirmTimeout = null;
+		this._errorTimeout = null;
 
 		this._init();
 
@@ -92,6 +98,7 @@ class HpvMixedGallery {
 						</div>
 					</div>
 					<div data-role="upload-area">${this._renderUploadArea()}</div>
+					<p class="mg-upload-error" data-role="upload-error" hidden></p>
 				</div>
 
 				<div class="mb-5">
@@ -125,6 +132,9 @@ class HpvMixedGallery {
 		);
 		this._uploadArea = this.container.querySelector(
 			'[data-role="upload-area"]',
+		);
+		this._uploadError = this.container.querySelector(
+			'[data-role="upload-error"]',
 		);
 		this._grid = this.container.querySelector('[data-role="grid"]');
 		this._empty = this.container.querySelector('[data-role="empty"]');
@@ -174,6 +184,7 @@ class HpvMixedGallery {
 		this._panel.classList.remove('is-open');
 		this._toggleIcon.classList.remove('is-rotated');
 		this._toggleText.innerText = 'Adicionar';
+		this._clearUploadError();
 	}
 
 	setMethod(method) {
@@ -192,6 +203,7 @@ class HpvMixedGallery {
 				(method === 'camera' ? ' is-selected mg-tab-active' : '');
 
 		this._uploadArea.innerHTML = this._renderUploadArea();
+		this._clearUploadError();
 	}
 
 	addAsset(asset) {
@@ -204,6 +216,7 @@ class HpvMixedGallery {
 	removeAsset(id) {
 		id = id + '';
 		if (!this.items.has(id)) return;
+		if (this._confirmingId === id) this._disarmRemove();
 		const asset = this.items.get(id);
 		this.items.delete(id);
 		const node = this._grid.querySelector(`[data-id="${id}"]`);
@@ -228,12 +241,15 @@ class HpvMixedGallery {
 	}
 
 	clear() {
+		this._disarmRemove();
 		this.items.clear();
 		while (this._grid.firstChild) this._grid.firstChild.remove();
 		this._updateTotal();
 	}
 
 	destroy() {
+		if (this._confirmTimeout) clearTimeout(this._confirmTimeout);
+		if (this._errorTimeout) clearTimeout(this._errorTimeout);
 		this.container.removeEventListener('click', this._onClick);
 		this.container.removeEventListener('change', this._onFileChange);
 		this.container.removeEventListener('dragover', this._onDragOver);
@@ -298,9 +314,19 @@ class HpvMixedGallery {
 								<p class="library-title" title="${this._escape(a.name)}">${this._escape(a.name)}</p>
 								<p class="library-meta">${this._escape(a.size)}${a.size ? ' • ' : ''}${this._escape(a.ext)}</p>
 							</div>
-							<button class="btn-delete-asset" data-action="remove" data-id="${a.id}">
-								<i class="fa-regular fa-trash-can"></i>
-							</button>
+							<span class="mg-card-actions">
+								<button class="btn-delete-asset mg-trash" data-action="remove" data-id="${a.id}" title="Remover" aria-label="Remover">
+									<i class="fa-regular fa-trash-can"></i>
+								</button>
+								<span class="mg-confirm">
+									<button class="btn-confirm-remove" data-action="remove-confirm" data-id="${a.id}" title="Confirmar remoção" aria-label="Confirmar remoção">
+										<i class="fa-solid fa-check"></i>
+									</button>
+									<button class="btn-cancel-remove" data-action="remove-cancel" data-id="${a.id}" title="Cancelar" aria-label="Cancelar">
+										<i class="fa-solid fa-xmark"></i>
+									</button>
+								</span>
+							</span>
 						</div>
 					</div>
 				</div>
@@ -353,7 +379,13 @@ class HpvMixedGallery {
 				this._simulateCameraSnap();
 				break;
 			case 'remove':
+				this._requestRemove(trigger.dataset.id);
+				break;
+			case 'remove-confirm':
 				this.removeAsset(trigger.dataset.id);
+				break;
+			case 'remove-cancel':
+				this._disarmRemove();
 				break;
 			case 'save':
 				this._handleSave();
@@ -369,23 +401,37 @@ class HpvMixedGallery {
 		e.target.value = ''; // allow re-selecting the same file
 	}
 
+	// The whole open upload panel is the drop target in local mode — dropping
+	// only on the small dashed box is too easy to miss, and a near-miss lets
+	// the browser hijack the file (opens it, replacing the app).
+	_isLocalDropTarget(e) {
+		return (
+			this.uploadMethod === 'local' &&
+			this.isUploadOpen &&
+			this._panel.contains(e.target)
+		);
+	}
+
+	_setDragover(on) {
+		const zone = this._uploadArea.querySelector('[data-role="dropzone"]');
+		if (zone) zone.classList.toggle('is-dragover', on);
+	}
+
 	_handleDragOver(e) {
-		const zone = e.target.closest('[data-role="dropzone"]');
-		if (!zone) return;
+		if (!this._isLocalDropTarget(e)) return;
 		e.preventDefault();
-		zone.classList.add('is-dragover');
+		this._setDragover(true);
 	}
 
 	_handleDragLeave(e) {
-		const zone = e.target.closest('[data-role="dropzone"]');
-		if (zone) zone.classList.remove('is-dragover');
+		// only clear when the drag actually leaves the panel
+		if (!this._panel.contains(e.relatedTarget)) this._setDragover(false);
 	}
 
 	_handleDrop(e) {
-		const zone = e.target.closest('[data-role="dropzone"]');
-		if (!zone) return;
+		if (!this._isLocalDropTarget(e)) return;
 		e.preventDefault();
-		zone.classList.remove('is-dragover');
+		this._setDragover(false);
 		const files = e.dataTransfer && e.dataTransfer.files;
 		if (!files || !files.length) return;
 		Array.from(files).forEach((file) => this._addFromFile(file));
@@ -396,6 +442,17 @@ class HpvMixedGallery {
 	}
 
 	_addFromFile(file) {
+		const limit = this.options.maxSizeMB;
+		if (limit && file.size > limit * 1024 * 1024) {
+			this._showUploadError(
+				`"${file.name}" excede o limite de ${limit} MB ` +
+					`(tem ${this._formatSize(file.size)}).`,
+			);
+			if (this.options.onReject)
+				this.options.onReject(this, file, 'too-large');
+			return;
+		}
+		this._clearUploadError();
 		this.addAsset({
 			name: file.name,
 			size: this._formatSize(file.size),
@@ -409,6 +466,56 @@ class HpvMixedGallery {
 			size: '840 KB',
 			ext: 'JPG',
 		});
+	}
+
+	// Inline delete confirmation — one card armed at a time, auto-cancels.
+	_requestRemove(id) {
+		if (!this.options.confirmRemove) {
+			this.removeAsset(id);
+			return;
+		}
+		this._armRemove(id);
+	}
+
+	_armRemove(id) {
+		id = id + '';
+		if (this._confirmingId === id) return;
+		this._disarmRemove();
+		const node = this._grid.querySelector(`[data-id="${id}"]`);
+		if (!node) return;
+		node.classList.add('is-confirming');
+		this._confirmingId = id;
+		this._confirmTimeout = setTimeout(() => this._disarmRemove(), 4000);
+	}
+
+	_disarmRemove() {
+		if (this._confirmTimeout) {
+			clearTimeout(this._confirmTimeout);
+			this._confirmTimeout = null;
+		}
+		if (this._confirmingId) {
+			const node = this._grid.querySelector(
+				`[data-id="${this._confirmingId}"]`,
+			);
+			if (node) node.classList.remove('is-confirming');
+			this._confirmingId = null;
+		}
+	}
+
+	_showUploadError(msg) {
+		if (this._errorTimeout) clearTimeout(this._errorTimeout);
+		this._uploadError.textContent = msg;
+		this._uploadError.hidden = false;
+		this._errorTimeout = setTimeout(() => this._clearUploadError(), 6000);
+	}
+
+	_clearUploadError() {
+		if (this._errorTimeout) {
+			clearTimeout(this._errorTimeout);
+			this._errorTimeout = null;
+		}
+		this._uploadError.hidden = true;
+		this._uploadError.textContent = '';
 	}
 
 	// -------------------------------------------------------------------------

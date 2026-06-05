@@ -34,10 +34,13 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 | `acceptHint`  | string   | …                  | Dropzone helper text.                   |
 | `saveLabel`   | string   | `'Salvar Galeria'` | Footer button label.                    |
 | `accept`      | string   | `''`               | Native `<input accept>` filter.         |
+| `maxSizeMB`   | number   | `15`               | Reject files larger than this; `0`/`null` = no limit. |
 | `enableCamera`| boolean  | `true`             | Show the "Captura de Câmera" tab.       |
 | `animate`     | boolean  | `true`             | Micro-interactions; set `false` to disable. |
+| `confirmRemove`| boolean | `true`             | Inline confirm before a card is deleted. |
 | `onAdd`       | function | `null`             | `fn(component, asset)`                   |
 | `onRemove`    | function | `null`             | `fn(component, id, asset)`              |
+| `onReject`    | function | `null`             | `fn(component, file, reason)` — e.g. `'too-large'`. |
 | `onSave`      | function | `null`             | `fn(component, assets)`                  |
 | `onCreate`    | function | `null`             | `fn(component)`                          |
 | `isDebug`     | boolean  | `false`            | Routes `debug()` to `console`.          |
@@ -56,3 +59,8 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
   showed the affordance).
 - Filenames are HTML-escaped before rendering.
 - `Salvar` fires `onSave` instead of the prototype's `alert()`.
+- Oversized files are rejected (default 15 MB) with a calm inline message
+  under the dropzone — no `alert()`. The `acceptHint` text is independent, so
+  keep it in sync with `maxSizeMB` if you change the limit.
+- Deleting a card asks for confirmation in place: the trash icon morphs into
+  ✓ / ✕; only one card can be armed at a time and it auto-cancels after ~4 s.

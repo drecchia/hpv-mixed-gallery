@@ -308,3 +308,57 @@
 	color: #ef4444;
 	background-color: #f1f5f9;
 }
+
+/* Upload error (e.g. file too large) — calm inline message under the dropzone */
+.hpv-mixed-gallery .mg-upload-error {
+	margin: 0.75rem 0 0;
+	font-size: 12px;
+	font-weight: 500;
+	color: #dc2626;
+}
+
+/* Delete confirm-in-place: trash morphs into ✓ / ✕ within the card */
+.hpv-mixed-gallery .mg-card-actions {
+	display: inline-flex;
+	align-items: center;
+	flex: none;
+}
+.hpv-mixed-gallery .mg-confirm {
+	display: none;
+	align-items: center;
+	gap: 2px;
+}
+.hpv-mixed-gallery .column.is-confirming .mg-trash {
+	display: none;
+}
+.hpv-mixed-gallery .column.is-confirming .mg-confirm {
+	display: inline-flex;
+}
+.hpv-mixed-gallery .column.is-confirming .library-card {
+	border-color: #fca5a5; /* soft red: this card is armed for deletion */
+}
+.hpv-mixed-gallery .btn-confirm-remove,
+.hpv-mixed-gallery .btn-cancel-remove {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 5px;
+	border-radius: 4px;
+	transition:
+		color 0.1s,
+		background-color 0.1s;
+}
+.hpv-mixed-gallery .btn-confirm-remove {
+	color: #ef4444;
+}
+.hpv-mixed-gallery .btn-confirm-remove:hover {
+	color: #ffffff;
+	background-color: #ef4444;
+}
+.hpv-mixed-gallery .btn-cancel-remove {
+	color: #94a3b8;
+}
+.hpv-mixed-gallery .btn-cancel-remove:hover {
+	color: #475569;
+	background-color: #f1f5f9;
+}
