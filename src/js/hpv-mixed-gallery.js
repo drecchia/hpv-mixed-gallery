@@ -254,8 +254,7 @@ class HpvMixedGallery {
 		const asset = this.items.get(id);
 		this.items.delete(id);
 		const node = this._grid.querySelector(`[data-id="${id}"]`);
-		if (node) node.remove();
-		this._updateTotal();
+		this._removeCardNode(node, () => this._updateTotal());
 		if (this.options.onRemove) this.options.onRemove(this, id, asset);
 	}
 
@@ -535,6 +534,41 @@ class HpvMixedGallery {
 			if (node) node.classList.remove('is-confirming');
 			this._confirmingId = null;
 		}
+	}
+
+	// Animate the card out (fade + shrink) before detaching it, then onDone().
+	_removeCardNode(node, onDone) {
+		if (!node || !this._shouldAnimate()) {
+			if (node) node.remove();
+			onDone();
+			return;
+		}
+		let finished = false;
+		let fallback = null;
+		const finish = () => {
+			if (finished) return;
+			finished = true;
+			clearTimeout(fallback);
+			node.removeEventListener('transitionend', onEnd);
+			node.remove();
+			onDone();
+		};
+		const onEnd = (e) => {
+			if (e.target === node) finish();
+		};
+		node.addEventListener('transitionend', onEnd);
+		fallback = setTimeout(finish, 320); // safety net if transitionend is missed
+		node.classList.add('is-removing'); // triggers the CSS transition
+	}
+
+	_shouldAnimate() {
+		return (
+			this.options.animate &&
+			!(
+				window.matchMedia &&
+				window.matchMedia('(prefers-reduced-motion: reduce)').matches
+			)
+		);
 	}
 
 	_showUploadError(msg) {

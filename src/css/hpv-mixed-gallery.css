@@ -337,6 +337,16 @@
 .hpv-mixed-gallery .column.is-confirming .library-card {
 	border-color: #fca5a5; /* soft red: this card is armed for deletion */
 }
+
+/* Card exit animation on confirmed delete (skipped when animation is off) */
+.hpv-mixed-gallery .column.is-removing {
+	transition:
+		opacity 0.2s ease,
+		transform 0.2s ease;
+	opacity: 0;
+	transform: scale(0.9);
+	pointer-events: none;
+}
 .hpv-mixed-gallery .btn-confirm-remove,
 .hpv-mixed-gallery .btn-cancel-remove {
 	background: none;
