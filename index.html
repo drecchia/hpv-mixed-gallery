@@ -33,20 +33,279 @@
 				justify-content: center;
 				padding: 1.5rem;
 			}
+
+			/* Demo-only PDF preview overlay (rendered with pdf.js) */
+			.pdf-overlay {
+				position: fixed;
+				inset: 0;
+				z-index: 1000;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 1.5rem;
+				background: rgba(15, 23, 42, 0.6);
+			}
+			.pdf-overlay[hidden] {
+				display: none;
+			}
+			.pdf-modal {
+				display: flex;
+				flex-direction: column;
+				width: 100%;
+				max-width: 760px;
+				max-height: 90vh;
+				overflow: hidden;
+				background: #fff;
+				border-radius: 10px;
+			}
+			.pdf-toolbar {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 0.75rem;
+				padding: 0.75rem 1rem;
+				border-bottom: 1px solid #e2e8f0;
+			}
+			.pdf-title {
+				flex: 0 1 auto;
+				min-width: 0;
+				overflow: hidden;
+				white-space: nowrap;
+				text-overflow: ellipsis;
+				font-size: 14px;
+				font-weight: 600;
+				color: #0f172a;
+			}
+			.pdf-tools {
+				display: flex;
+				align-items: center;
+				gap: 1rem;
+				font-size: 13px;
+				color: #475569;
+			}
+			.pdf-counter {
+				min-width: 56px;
+				text-align: center;
+			}
+			.pdf-zoom {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+			}
+			.pdf-zoom button {
+				width: 26px;
+				height: 26px;
+				border: 1px solid #cbd5e1;
+				border-radius: 6px;
+				background: #fff;
+				color: #0f172a;
+				font-size: 15px;
+				line-height: 1;
+				cursor: pointer;
+			}
+			.pdf-zoom button:hover {
+				background: #f1f5f9;
+			}
+			.pdf-zoom-label {
+				min-width: 44px;
+				text-align: center;
+			}
+			.pdf-close {
+				flex: none;
+				padding: 0.4rem 0.9rem;
+				border: none;
+				border-radius: 6px;
+				background: #0f172a;
+				color: #fff;
+				font-weight: 500;
+				cursor: pointer;
+			}
+			.pdf-pages {
+				overflow: auto;
+				padding: 1rem;
+				background: #f1f5f9;
+			}
+			.pdf-page {
+				display: block;
+				margin: 0 auto 0.75rem;
+				box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+			}
+			.pdf-page:last-child {
+				margin-bottom: 0;
+			}
+			.pdf-loading,
+			.pdf-error {
+				padding: 2rem;
+				font-size: 13px;
+				color: #475569;
+			}
 		</style>
 	</head>
 	<body>
 		<div id="media-library"></div>
 
+		<!-- Demo-only PDF preview overlay (filled by pdf.js) -->
+		<div class="pdf-overlay" id="pdf-overlay" hidden>
+			<div class="pdf-modal">
+				<div class="pdf-toolbar">
+					<span class="pdf-title"></span>
+					<div class="pdf-tools">
+						<span class="pdf-counter">– / –</span>
+						<span class="pdf-zoom">
+							<button
+								class="pdf-zoom-out"
+								type="button"
+								aria-label="Diminuir zoom"
+							>
+								−
+							</button>
+							<span class="pdf-zoom-label">100%</span>
+							<button
+								class="pdf-zoom-in"
+								type="button"
+								aria-label="Aumentar zoom"
+							>
+								+
+							</button>
+						</span>
+					</div>
+					<button class="pdf-close" type="button">Fechar</button>
+				</div>
+				<div class="pdf-pages"></div>
+			</div>
+		</div>
+
 		<script src="https://cdn.jsdelivr.net/npm/hpv-image-previewer@1.0.2/dist/js/all.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 		<script src="src/js/hpv-mixed-gallery.js"></script>
 		<script>
 			// Demo-only: the gallery fires onItemClick for ANY card; the host
-			// decides what to do based on the asset's type/extension. Here, image
-			// items open an HpvImagePreviewer lightbox.
+			// decides what to do based on the asset's type/extension. Images open
+			// an HpvImagePreviewer lightbox; PDFs render in a pdf.js overlay.
 			const previewer = new HpvImagePreviewer({
 				closeButtonText: 'Fechar',
 			});
+
+			// --- pdf.js preview (demo-only) ---
+			pdfjsLib.GlobalWorkerOptions.workerSrc =
+				'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+			const pdfOverlay = document.getElementById('pdf-overlay');
+			const pdfPages = pdfOverlay.querySelector('.pdf-pages');
+			const pdfTitle = pdfOverlay.querySelector('.pdf-title');
+			const pdfCounter = pdfOverlay.querySelector('.pdf-counter');
+			const pdfZoomLabel = pdfOverlay.querySelector('.pdf-zoom-label');
+
+			let pdfDoc = null; // current PDFDocumentProxy
+			let pdfScale = 1.3; // current render scale
+			let pageCanvases = []; // one <canvas> per page, in order
+			let renderToken = 0; // guards against overlapping re-renders
+
+			const closePdf = () => {
+				pdfOverlay.hidden = true;
+				pdfDoc = null;
+				pageCanvases = [];
+				pdfPages.innerHTML = ''; // free rendered canvases
+			};
+			pdfOverlay
+				.querySelector('.pdf-close')
+				.addEventListener('click', closePdf);
+			pdfOverlay.addEventListener('click', (e) => {
+				if (e.target === pdfOverlay) closePdf(); // backdrop click
+			});
+			document.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape' && !pdfOverlay.hidden) closePdf();
+			});
+
+			// which page is currently in view (probe ~30% down the viewport)
+			function currentPage() {
+				if (!pageCanvases.length) return 1;
+				const probe =
+					pdfPages.getBoundingClientRect().top +
+					pdfPages.clientHeight * 0.3;
+				let page = 1;
+				pageCanvases.forEach((c, i) => {
+					if (c.getBoundingClientRect().top <= probe) page = i + 1;
+				});
+				return page;
+			}
+			function updateCounter() {
+				const total = pdfDoc ? pdfDoc.numPages : '–';
+				pdfCounter.textContent = `${currentPage()} / ${total}`;
+			}
+			pdfPages.addEventListener('scroll', updateCounter);
+
+			async function renderPages(keepPage = 1) {
+				if (!pdfDoc) return;
+				const token = ++renderToken; // newest render wins
+				pdfPages.innerHTML = '';
+				pageCanvases = [];
+				pdfZoomLabel.textContent = Math.round(pdfScale * 100) + '%';
+				updateCounter(); // show "1 / N" immediately, before pages finish
+				for (let n = 1; n <= pdfDoc.numPages; n++) {
+					const page = await pdfDoc.getPage(n);
+					if (token !== renderToken) return; // superseded by newer render
+					const viewport = page.getViewport({ scale: pdfScale });
+					const canvas = document.createElement('canvas');
+					canvas.className = 'pdf-page';
+					canvas.width = viewport.width;
+					canvas.height = viewport.height;
+					pdfPages.appendChild(canvas);
+					pageCanvases.push(canvas);
+					await page.render({
+						canvasContext: canvas.getContext('2d'),
+						viewport,
+					}).promise;
+					if (token !== renderToken) return;
+				}
+				// keep the same page in view after a zoom re-render
+				if (keepPage > 1 && pageCanvases[keepPage - 1]) {
+					pdfPages.scrollTop +=
+						pageCanvases[keepPage - 1].getBoundingClientRect().top -
+						pdfPages.getBoundingClientRect().top;
+				}
+				updateCounter();
+			}
+
+			function zoom(delta) {
+				if (!pdfDoc) return;
+				const next = Math.min(
+					3,
+					Math.max(0.5, +(pdfScale + delta).toFixed(2)),
+				);
+				if (next === pdfScale) return;
+				const keep = currentPage();
+				pdfScale = next;
+				renderPages(keep);
+			}
+			pdfOverlay
+				.querySelector('.pdf-zoom-in')
+				.addEventListener('click', () => zoom(0.2));
+			pdfOverlay
+				.querySelector('.pdf-zoom-out')
+				.addEventListener('click', () => zoom(-0.2));
+
+			async function openPdf(url, name) {
+				pdfTitle.textContent = name;
+				pdfCounter.textContent = '– / –';
+				pdfPages.innerHTML = '<p class="pdf-loading">Carregando…</p>';
+				pdfOverlay.hidden = false;
+				try {
+					pdfDoc = await pdfjsLib.getDocument(url).promise;
+					// initial scale: fit the page width to the viewer
+					const first = await pdfDoc.getPage(1);
+					const base = first.getViewport({ scale: 1 });
+					const fitWidth = pdfPages.clientWidth - 32; // minus padding
+					pdfScale =
+						fitWidth > 0
+							? Math.min(2, Math.max(0.5, fitWidth / base.width))
+							: 1.3;
+					await renderPages();
+				} catch (err) {
+					pdfPages.innerHTML =
+						'<p class="pdf-error">Não foi possível carregar o PDF.</p>';
+					console.error(err);
+				}
+			}
 
 			const gallery = new HpvMixedGallery('media-library', {
 				maxItems: 12,
@@ -99,6 +358,7 @@
 						name: 'relatorio_config.pdf',
 						size: '2.4 MB',
 						ext: 'PDF',
+						url: 'https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf',
 					},
 					{
 						name: 'inventario_rack.xlsx',
@@ -110,27 +370,28 @@
 				onRemove: (c, id) => console.log('remove', id),
 				onItemClick: (c, asset) => {
 					// type/extension decides what a click does
-					const isImage = [
-						'JPG',
-						'JPEG',
-						'PNG',
-						'GIF',
-						'WEBP',
-					].includes((asset.ext || '').toUpperCase());
-					if (!isImage) {
-						console.log(
-							'item clicked (no preview):',
-							asset.name,
-							asset.ext,
-						);
+					const ext = (asset.ext || '').toUpperCase();
+					if (['JPG', 'JPEG', 'PNG', 'GIF', 'WEBP'].includes(ext)) {
+						// images -> HpvImagePreviewer gallery
+						const imgs = c.getImages().filter((a) => a.url);
+						const list = imgs.map((a) => ({
+							url: a.url,
+							alt: a.name,
+						}));
+						const index = imgs.findIndex((a) => a.id === asset.id);
+						if (index >= 0) previewer.showGallery(list, index);
+						else console.log('no preview url for', asset.name);
 						return;
 					}
-					// previewable images = image assets that have a url
-					const imgs = c.getImages().filter((a) => a.url);
-					const list = imgs.map((a) => ({ url: a.url, alt: a.name }));
-					const index = imgs.findIndex((a) => a.id === asset.id);
-					if (index >= 0) previewer.showGallery(list, index);
-					else console.log('no preview url for', asset.name);
+					if (ext === 'PDF' && asset.url) {
+						openPdf(asset.url, asset.name); // pdf.js overlay
+						return;
+					}
+					console.log(
+						'item clicked (no preview):',
+						asset.name,
+						asset.ext,
+					);
 				},
 				onSave: (c, assets) =>
 					alert(`Galeria salva com ${assets.length} item(ns)!`),
