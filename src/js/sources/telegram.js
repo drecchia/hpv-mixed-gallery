@@ -22,6 +22,9 @@ class HpvTelegramSource {
 		this.options = {
 			label: options.label || 'Telegram',
 			url: options.url || 'ws://localhost:8081',
+			// 'telegram2ws' (create_session/session_created/media_forward/ack) or
+			// 'i2w' (no handshake; server pushes {type:'qrcode'|'image', base64}).
+			protocol: options.protocol || 'telegram2ws',
 			locale: options.locale || (navigator.language || 'en').slice(0, 2),
 			clientMeta: options.clientMeta || null,
 			pingInterval: options.pingInterval || 25000,
@@ -94,18 +97,21 @@ class HpvTelegramSource {
 		}
 		this.ws = ws;
 		ws.onopen = () => {
-			const msg = {
-				action: 'create_session',
-				mode: 'FORWARD_PICTURE',
-				locale: this.options.locale,
-			};
-			if (this.options.clientMeta)
-				msg.clientMeta = this.options.clientMeta;
-			ws.send(JSON.stringify(msg));
-			this._ping = setInterval(() => {
-				if (ws.readyState === 1)
-					ws.send(JSON.stringify({ action: 'ping' }));
-			}, this.options.pingInterval);
+			if (this.options.protocol === 'telegram2ws') {
+				const msg = {
+					action: 'create_session',
+					mode: 'FORWARD_PICTURE',
+					locale: this.options.locale,
+				};
+				if (this.options.clientMeta)
+					msg.clientMeta = this.options.clientMeta;
+				ws.send(JSON.stringify(msg));
+				this._ping = setInterval(() => {
+					if (ws.readyState === 1)
+						ws.send(JSON.stringify({ action: 'ping' }));
+				}, this.options.pingInterval);
+			}
+			// i2w: send nothing — the server pushes {type:'qrcode'} then {type:'image'}
 		};
 		ws.onmessage = (e) => this._onMessage(e);
 		ws.onerror = () => {
@@ -152,6 +158,17 @@ class HpvTelegramSource {
 		} catch (_) {
 			return;
 		}
+		// i2w protocol (type-based, no handshake/ack): the server pushes the QR
+		// then each photo as a full data URL.
+		if (msg.type === 'qrcode') {
+			this._setPhase('waiting', { qrPayload: msg.base64 });
+			return;
+		}
+		if (msg.type === 'image') {
+			this._ingestMedia(msg.base64, msg.mime, {});
+			return;
+		}
+		// telegram2ws protocol (action-based)
 		switch (msg.action) {
 			case 'session_created':
 				this._setPhase('waiting', {
@@ -161,9 +178,19 @@ class HpvTelegramSource {
 				});
 				this._startCountdown();
 				break;
-			case 'media_forward':
-				this._onMedia(msg);
+			case 'media_forward': {
+				const m = msg.media || {};
+				// ack first so the bridge doesn't hit its 10s resend/timeout
+				if (this.ws && this.ws.readyState === 1 && msg.messageId)
+					this.ws.send(
+						JSON.stringify({
+							action: 'ack',
+							messageId: msg.messageId,
+						}),
+					);
+				this._ingestMedia(m.data, m.mime, m.metadata || {});
 				break;
+			}
 			case 'session_error':
 				this._setPhase('error', {
 					error: msg.error || this.options.errorText,
@@ -178,29 +205,22 @@ class HpvTelegramSource {
 		}
 	}
 
-	async _onMedia(msg) {
-		const media = msg.media || {};
-		// ack first so the bridge doesn't hit its 10s resend/timeout
-		if (this.ws && this.ws.readyState === 1 && msg.messageId)
-			this.ws.send(
-				JSON.stringify({ action: 'ack', messageId: msg.messageId }),
-			);
-		if (!media.data) return;
+	// data may be a full data URL (Jimp/i2w) or bare base64.
+	async _ingestMedia(data, mimeIn, meta) {
+		if (!data) return;
 		const g = this.gallery;
 		if (g.isFull()) {
 			g.showError(g.options.labels.galleryFull(g.options.maxItems));
 			return;
 		}
 		try {
-			const mime = media.mime || 'image/jpeg';
-			// node-telegram2ws sends a full data URL (Jimp getBase64); tolerate
-			// bare base64 too.
-			const dataUrl = String(media.data).startsWith('data:')
-				? media.data
-				: `data:${mime};base64,${media.data}`;
+			const mime = mimeIn || 'image/jpeg';
+			const dataUrl = String(data).startsWith('data:')
+				? data
+				: `data:${mime};base64,${data}`;
 			const blob = await (await fetch(dataUrl)).blob();
 			g.addFiles([
-				new File([blob], this._name(media, mime), { type: mime }),
+				new File([blob], this._name(meta, mime), { type: mime }),
 			]);
 			this._received++;
 			this._renderReceived();
@@ -209,8 +229,8 @@ class HpvTelegramSource {
 		}
 	}
 
-	_name(media, mime) {
-		const md = media.metadata || {};
+	_name(meta, mime) {
+		const md = meta || {};
 		const ext = (mime.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
 		const base =
 			(md.caption && md.caption.trim()) ||
@@ -251,22 +271,27 @@ class HpvTelegramSource {
 			const meta = this._received
 				? esc(o.receivedText(this._received))
 				: esc(o.waitingHint);
-			// Allowlist the deep-link scheme — the URL is server-supplied, so guard
-			// against a javascript:/data: href even though it should be a t.me link.
+			// Deep link + countdown only exist in the telegram2ws protocol; i2w
+			// just pushes a QR. Allowlist the (server-supplied) link scheme.
 			const link = this._safeLink(s.deepLink);
+			const openBtn =
+				s.deepLink && link !== '#'
+					? `<a class="button is-small is-link mg-tg-open" href="${esc(link)}" target="_blank" rel="noopener"><span class="icon"><i class="fa-brands fa-telegram"></i></span><span>${esc(o.openLabel)}</span></a>`
+					: '';
+			const countdown = s.expiresAt
+				? ` · <span data-role="tg-countdown"></span>`
+				: '';
 			root.innerHTML = `
 				<div class="mg-tg-grid">
 					<img class="mg-tg-qr" src="${esc(s.qrPayload)}" alt="QR code Telegram" width="180" height="180" />
 					<div class="mg-tg-info">
 						<p class="mg-tg-title">${esc(o.title)}</p>
 						<ol class="mg-tg-steps">${steps}</ol>
-						<a class="button is-small is-link mg-tg-open" href="${esc(link)}" target="_blank" rel="noopener">
-							<span class="icon"><i class="fa-brands fa-telegram"></i></span><span>${esc(o.openLabel)}</span>
-						</a>
-						<p class="mg-tg-meta"><span data-role="tg-received">${meta}</span> · <span data-role="tg-countdown"></span></p>
+						${openBtn}
+						<p class="mg-tg-meta"><span data-role="tg-received">${meta}</span>${countdown}</p>
 					</div>
 				</div>`;
-			this._tick();
+			if (s.expiresAt) this._tick();
 			return;
 		}
 		// expired / error
