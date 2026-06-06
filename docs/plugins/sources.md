@@ -115,19 +115,26 @@ g.registerSource(new HpvTelegramSource({ url: 'wss://bridge.example.com' }));
 |--------|---------|-------|
 | `id` | `'telegram'` | tab id |
 | `label` | `'Telegram'` | tab text |
-| `url` | `'ws://localhost:8081'` | the node-telegram2ws WebSocket endpoint |
-| `locale` | browser language | sent in `create_session` |
-| `clientMeta` | `null` | optional `{ timezone, … }` sent in `create_session` |
-| `pingInterval` | `25000` | heartbeat ping (ms) |
+| `url` | `'ws://localhost:8081'` | the bridge WebSocket endpoint |
+| `protocol` | `'telegram2ws'` | wire protocol: `'telegram2ws'` or `'i2w'` (see below) |
+| `locale` | browser language | sent in `create_session` (telegram2ws) |
+| `clientMeta` | `null` | optional `{ timezone, … }` sent in `create_session` (telegram2ws) |
+| `pingInterval` | `25000` | heartbeat ping (ms, telegram2ws) |
 | `title` / `steps` / `openLabel` / `connectingText` / `waitingHint` / `receivedText(n)` / `expiredText` / `retryLabel` / `errorText` / `mediaErrorText` | pt-BR | UI copy |
 
-**Protocol** (`FORWARD_PICTURE` mode):
-`→ create_session` ⟶ `← session_created { qrPayload, deepLink, expiresAt }` (QR
-shown) ⟶ `← media_forward { messageId, media:{ mime, data, metadata } }` →
-`→ ack { messageId }` (the bridge resends/times out at 10s). `media.data` may be a
-data URL (Jimp `getBase64`) or bare base64 — both are handled. The session TTL is
-~5 min; a live countdown is shown and on expiry a **Gerar novo QR** button
-regenerates it; `session_error`/`error`/disconnect show a retry button.
+**Protocols.** Two wire formats are supported (`protocol` option):
+
+- **`telegram2ws`** (default, `FORWARD_PICTURE` mode):
+  `→ create_session` ⟶ `← session_created { qrPayload, deepLink, expiresAt }`
+  (QR + deep-link button + ~5 min countdown shown) ⟶
+  `← media_forward { messageId, media:{ mime, data, metadata } }` →
+  `→ ack { messageId }` (bridge resends/times out at 10s). On expiry a
+  **Gerar novo QR** button regenerates; `session_error`/`error`/disconnect → retry.
+- **`i2w`** (the `@i2w_bot` bridge): **no handshake or ack** — on connect the server
+  pushes `← { type:'qrcode', base64 }` (QR shown; no deep link / countdown) and then
+  `← { type:'image', base64, mime }` per photo. `base64` is a full data URL.
+
+`media.data` / `base64` may be a data URL or bare base64 — both are handled.
 
 **Lifecycle:** the WebSocket opens on tab-show (`onShow`) and closes on
 tab-hide/`destroy` — the bridge cleans the session up on disconnect, so the user
