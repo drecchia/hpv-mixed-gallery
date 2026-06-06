@@ -161,9 +161,33 @@
 				font-size: 13px;
 				color: #475569;
 			}
+
+			/* demo-only: a target picker to show source × target composability */
+			.demo-bar {
+				position: fixed;
+				top: 12px;
+				left: 12px;
+				z-index: 50;
+				padding: 6px 10px;
+				font-size: 13px;
+				background: #fff;
+				border: 1px solid #e2e8f0;
+				border-radius: 8px;
+				box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+			}
 		</style>
 	</head>
 	<body>
+		<div class="demo-bar">
+			<label
+				>Destino:
+				<select id="target-select">
+					<option value="local">Galeria (local)</option>
+					<option value="xhr">Servidor (XHR)</option>
+					<option value="s3">Amazon S3</option>
+				</select></label
+			>
+		</div>
 		<div id="media-library"></div>
 
 		<!-- Demo-only PDF preview overlay (filled by pdf.js) -->
@@ -210,12 +234,14 @@
 		<script src="src/js/hpv-mixed-gallery.js"></script>
 		<!-- upload-method plugins (registered after construction) -->
 		<script src="https://releases.transloadit.com/uppy/v3.27.3/uppy.min.js"></script>
-		<script src="src/js/plugins/local-upload.js"></script>
-		<script src="src/js/plugins/camera-capture.js"></script>
-		<script src="src/js/plugins/xhr-upload.js"></script>
-		<script src="src/js/plugins/uppy-upload.js"></script>
-		<script src="src/js/plugins/s3-upload.js"></script>
-		<script src="src/js/plugins/url-import.js"></script>
+		<!-- sources (tabs) -->
+		<script src="src/js/sources/local.js"></script>
+		<script src="src/js/sources/camera.js"></script>
+		<script src="src/js/sources/url.js"></script>
+		<script src="src/js/sources/uppy.js"></script>
+		<!-- targets (storage) -->
+		<script src="src/js/targets/xhr.js"></script>
+		<script src="src/js/targets/s3.js"></script>
 		<script>
 			// Demo-only: the gallery fires onItemClick for ANY card; the host
 			// decides what to do based on the asset's type/extension. Images open
@@ -473,34 +499,26 @@
 					alert(`Galeria salva com ${assets.length} item(ns)!`),
 			});
 
-			// Upload methods are plugins — register them (first = active tab).
-			gallery.registerUploadPlugin(new HpvLocalUpload());
-			gallery.registerUploadPlugin(new HpvCameraCapture()); // real WebRTC
-			gallery.registerUploadPlugin(
-				// demo endpoint just echoes the request (no hosted file) — so don't
-				// link cards to a URL. A real upload API returns the stored file URL.
-				new HpvXhrUpload({
-					label: 'Servidor',
-					endpoint: 'https://httpbin.org/post',
-					responseParser: () => ({}),
-				}),
-			);
-			gallery.registerUploadPlugin(
-				// local mode adds chosen files straight to the gallery (no server)
-				new HpvUppyUpload({ mode: 'local' }),
-			);
+			// SOURCES are the tabs (first registered = active). They acquire
+			// files/urls and hand them to the active TARGET via gallery.ingest.
+			gallery.registerSource(new HpvLocalSource());
+			gallery.registerSource(new HpvCameraSource()); // real WebRTC
+			gallery.registerSource(new HpvUrlSource());
+			gallery.registerSource(new HpvUppySource()); // needs the Uppy bundle
 
-			gallery.registerUploadPlugin(
-				new HpvS3Upload({
-					label: 'Amazon S3',
-					// DEMO ONLY: no real backend/bucket here, so we simulate the
-					// signer — PUT to an echo endpoint (stands in for a presigned
-					// URL) and preview the local copy. In production, `sign` calls
-					// YOUR backend and returns the real { url, publicUrl } — e.g.:
-					//   sign: async (file) => (await fetch('/api/s3-sign', {
-					//     method: 'POST', headers: { 'Content-Type': 'application/json' },
-					//     body: JSON.stringify({ name: file.name, type: file.type, size: file.size }),
-					//   })).json()
+			// TARGETS decide where the bytes go. Default (no setTarget) keeps files
+			// in the gallery. The demo lets you switch destination to show that ANY
+			// source composes with ANY target. Both demo endpoints just echo (no
+			// real bucket/server), so they don't return a usable file URL.
+			const targets = {
+				local: null, // built-in: keep in the gallery (object URL)
+				xhr: new HpvXhrTarget({
+					endpoint: 'https://httpbin.org/post',
+					responseParser: () => ({}), // echo endpoint → no file URL
+				}),
+				s3: new HpvS3Target({
+					// DEMO stub signer (PUT to an echo endpoint, preview local copy).
+					// In production, sign() calls YOUR backend for a presigned URL.
 					sign: (file) =>
 						Promise.resolve({
 							method: 'PUT',
@@ -508,9 +526,12 @@
 							publicUrl: URL.createObjectURL(file),
 						}),
 				}),
-			);
-			// paste a remote URL → card references it (no server needed)
-			gallery.registerUploadPlugin(new HpvUrlImport());
+			};
+			document
+				.getElementById('target-select')
+				.addEventListener('change', (e) => {
+					gallery.setTarget(targets[e.target.value]);
+				});
 		</script>
 	</body>
 </html>
