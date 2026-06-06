@@ -244,6 +244,7 @@
 		<script src="src/js/sources/url.js"></script>
 		<script src="src/js/sources/uppy.js"></script>
 		<script src="src/js/sources/telegram.js"></script>
+		<script src="src/js/sources/clipboard.js"></script>
 		<!-- targets (storage) -->
 		<script src="src/js/targets/xhr.js"></script>
 		<script src="src/js/targets/s3.js"></script>
@@ -514,6 +515,7 @@
 			// sent in Telegram stream in. Needs the bridge running (default
 			// ws://localhost:8081) — pass { url } to point elsewhere.
 			gallery.registerSource(new HpvTelegramSource());
+			gallery.registerSource(new HpvClipboardSource()); // paste images/links
 
 			// TARGETS decide where the bytes go. Default (no setTarget) keeps files
 			// in the gallery. The demo lets you switch destination to show that ANY
