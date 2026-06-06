@@ -489,23 +489,25 @@
 				new HpvUppyUpload({ mode: 'local' }),
 			);
 
-			// S3 signed upload — needs YOUR backend to sign + a bucket, so it's not
-			// registered in this static demo. Wire it like this:
-			//
-			// gallery.registerUploadPlugin(
-			//   new HpvS3Upload({
-			//     label: 'Amazon S3',
-			//     // ask your backend for a presigned URL (PUT) or policy (POST):
-			//     sign: async (file) => {
-			//       const r = await fetch('/api/s3-sign', {
-			//         method: 'POST',
-			//         headers: { 'Content-Type': 'application/json' },
-			//         body: JSON.stringify({ name: file.name, type: file.type, size: file.size }),
-			//       });
-			//       return r.json(); // { method:'PUT', url, publicUrl }  or  { method:'POST', url, fields }
-			//     },
-			//   }),
-			// );
+			gallery.registerUploadPlugin(
+				new HpvS3Upload({
+					label: 'Amazon S3',
+					// DEMO ONLY: no real backend/bucket here, so we simulate the
+					// signer — PUT to an echo endpoint (stands in for a presigned
+					// URL) and preview the local copy. In production, `sign` calls
+					// YOUR backend and returns the real { url, publicUrl } — e.g.:
+					//   sign: async (file) => (await fetch('/api/s3-sign', {
+					//     method: 'POST', headers: { 'Content-Type': 'application/json' },
+					//     body: JSON.stringify({ name: file.name, type: file.type, size: file.size }),
+					//   })).json()
+					sign: (file) =>
+						Promise.resolve({
+							method: 'PUT',
+							url: 'https://httpbin.org/put',
+							publicUrl: URL.createObjectURL(file),
+						}),
+				}),
+			);
 		</script>
 	</body>
 </html>
