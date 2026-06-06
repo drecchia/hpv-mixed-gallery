@@ -251,13 +251,16 @@ class HpvTelegramSource {
 			const meta = this._received
 				? esc(o.receivedText(this._received))
 				: esc(o.waitingHint);
+			// Allowlist the deep-link scheme — the URL is server-supplied, so guard
+			// against a javascript:/data: href even though it should be a t.me link.
+			const link = this._safeLink(s.deepLink);
 			root.innerHTML = `
 				<div class="mg-tg-grid">
 					<img class="mg-tg-qr" src="${esc(s.qrPayload)}" alt="QR code Telegram" width="180" height="180" />
 					<div class="mg-tg-info">
 						<p class="mg-tg-title">${esc(o.title)}</p>
 						<ol class="mg-tg-steps">${steps}</ol>
-						<a class="button is-small is-link mg-tg-open" href="${esc(s.deepLink)}" target="_blank" rel="noopener">
+						<a class="button is-small is-link mg-tg-open" href="${esc(link)}" target="_blank" rel="noopener">
 							<span class="icon"><i class="fa-brands fa-telegram"></i></span><span>${esc(o.openLabel)}</span>
 						</a>
 						<p class="mg-tg-meta"><span data-role="tg-received">${meta}</span> · <span data-role="tg-countdown"></span></p>
@@ -281,6 +284,12 @@ class HpvTelegramSource {
 		const root = this._root();
 		const el = root && root.querySelector('[data-role="tg-received"]');
 		if (el) el.textContent = this.options.receivedText(this._received);
+	}
+
+	// Only let the deep link through if it uses a safe scheme (Telegram uses
+	// https://t.me/… or tg://); anything else (javascript:, data:, …) → '#'.
+	_safeLink(url) {
+		return /^(https?:|tg:)/i.test(String(url || '').trim()) ? url : '#';
 	}
 
 	_handleClick(e) {
