@@ -15,19 +15,13 @@ class HpvMixedGallery {
 			// --- data
 			items: [], // initial assets: [{ name, size, ext }]
 			// --- behavior
-			accept: '', // native <input> accept attribute, e.g. '.pdf,.jpg'
 			maxSizeMB: 15, // reject files larger than this (0 / null = no limit)
 			maxItems: 0, // max assets the gallery can hold (0 = unlimited)
-			enableCamera: true, // show the "Captura de Câmera" tab
 			animate: true, // micro-interactions (panel reveal, icon morph, button feedback)
 			confirmRemove: true, // require an inline confirm before deleting a card
-			cameraSnapAsset: {
-				// asset produced by the simulated camera capture
-				name: 'foto_painel_hardware.jpg',
-				size: '840 KB',
-				ext: 'JPG',
-			},
-			// --- all user-facing copy (override any single string; pt-BR defaults)
+			// --- all user-facing copy (override any single string; pt-BR defaults).
+			//     Upload-method strings (tab label, dropzone copy) live in the
+			//     registered upload plugins, not here.
 			labels: {
 				title: 'Arquivos e Imagens',
 				subtitle:
@@ -35,13 +29,6 @@ class HpvMixedGallery {
 				addButton: 'Adicionar', // toggle, panel closed
 				closeButton: 'Fechar', // toggle, panel open
 				sourceLabel: 'Origem do arquivo:',
-				tabLocal: 'Upload Local',
-				tabCamera: 'Captura de Câmera',
-				localTitle: 'Clique para buscar ou arraste seu arquivo para cá',
-				acceptHint: 'Formatos aceitos: PDF, XLSX, JPG, PNG até 15MB',
-				cameraTitle: 'Capturar da Câmera',
-				cameraHint:
-					'Conectando câmera do terminal ou tablet integrado...',
 				sectionTitle: 'Itens Salvos',
 				emptyTitle: 'Nenhum arquivo anexado',
 				emptyText:
@@ -87,7 +74,8 @@ class HpvMixedGallery {
 		// state
 		this.items = new Map(); // id(string) -> asset
 		this.isUploadOpen = false;
-		this.uploadMethod = 'local'; // 'local' | 'camera'
+		this.uploadMethod = null; // active upload-plugin id (set on register)
+		this._uploadPlugins = []; // registered upload-method plugins
 		this._seq = 0;
 		this._confirmingId = null; // card currently armed for delete (one at a time)
 		this._confirmTimeout = null;
@@ -131,16 +119,9 @@ class HpvMixedGallery {
 				<div class="upload-disclosure-panel" data-role="upload-panel">
 					<div class="field mb-3">
 						<label class="label is-size-7 mg-subtitle">${L.sourceLabel}</label>
-						<div class="buttons has-addons mb-0">
-							<button class="button is-small is-selected mg-tab-active" data-action="method" data-method="local" data-role="tab-local">${L.tabLocal}</button>
-							${
-								o.enableCamera
-									? `<button class="button is-small" data-action="method" data-method="camera" data-role="tab-camera">${L.tabCamera}</button>`
-									: ''
-							}
-						</div>
+						<div class="buttons has-addons mb-0" data-role="tabs"></div>
 					</div>
-					<div data-role="upload-area">${this._renderUploadArea()}</div>
+					<div data-role="upload-area"></div>
 					<p class="mg-upload-error" data-role="upload-error" hidden></p>
 				</div>
 
@@ -163,10 +144,6 @@ class HpvMixedGallery {
 					<span class="is-size-7 has-text-grey mg-counter" data-role="counter">${L.counter(0, o.maxItems || 0)}</span>
 					<button class="button is-small is-dark mg-accent-btn mg-save-btn" data-action="save">${L.saveButton}</button>
 				</div>
-
-				<input type="file" data-role="file-input" style="display: none;" ${
-					o.accept ? `accept="${o.accept}"` : ''
-				}>
 			</div>`;
 
 		// cache refs
@@ -174,6 +151,7 @@ class HpvMixedGallery {
 		this._panel = this.container.querySelector(
 			'[data-role="upload-panel"]',
 		);
+		this._tabs = this.container.querySelector('[data-role="tabs"]');
 		this._uploadArea = this.container.querySelector(
 			'[data-role="upload-area"]',
 		);
@@ -183,9 +161,6 @@ class HpvMixedGallery {
 		this._grid = this.container.querySelector('[data-role="grid"]');
 		this._empty = this.container.querySelector('[data-role="empty"]');
 		this._counter = this.container.querySelector('[data-role="counter"]');
-		this._fileInput = this.container.querySelector(
-			'[data-role="file-input"]',
-		);
 		this._toggleIcon = this.container.querySelector(
 			'[data-role="toggle-icon"]',
 		);
@@ -196,19 +171,11 @@ class HpvMixedGallery {
 	}
 
 	_setupEventListeners() {
+		// File-picker / drag-drop / camera events are owned by upload plugins.
 		this._onClick = (e) => this._handleClick(e);
 		this._onKeydown = (e) => this._handleKeydown(e);
-		this._onFileChange = (e) => this._handleFileChange(e);
-		this._onDragOver = (e) => this._handleDragOver(e);
-		this._onDragLeave = (e) => this._handleDragLeave(e);
-		this._onDrop = (e) => this._handleDrop(e);
-
 		this.container.addEventListener('click', this._onClick);
 		this.container.addEventListener('keydown', this._onKeydown);
-		this.container.addEventListener('change', this._onFileChange);
-		this.container.addEventListener('dragover', this._onDragOver);
-		this.container.addEventListener('dragleave', this._onDragLeave);
-		this.container.addEventListener('drop', this._onDrop);
 	}
 
 	// -------------------------------------------------------------------------
@@ -224,32 +191,76 @@ class HpvMixedGallery {
 		this._panel.classList.add('is-open');
 		this._toggleIcon.classList.add('is-rotated'); // plus rotates into an ×
 		this._toggleText.innerText = this.options.labels.closeButton;
+		this._notifyShow(); // e.g. camera plugin starts its stream
 	}
 
 	closeUpload() {
 		this.isUploadOpen = false;
+		this._notifyHide(); // e.g. camera plugin releases its stream
 		this._panel.classList.remove('is-open');
 		this._toggleIcon.classList.remove('is-rotated');
 		this._toggleText.innerText = this.options.labels.addButton;
 		this._clearUploadError();
 	}
 
-	setMethod(method) {
-		if (method !== 'local' && method !== 'camera') return;
-		this.uploadMethod = method;
+	_activePlugin() {
+		return (
+			this._uploadPlugins.find((p) => p.id === this.uploadMethod) || null
+		);
+	}
+	_notifyShow() {
+		const p = this._activePlugin();
+		if (p && typeof p.onShow === 'function') p.onShow(this);
+	}
+	_notifyHide() {
+		const p = this._activePlugin();
+		if (p && typeof p.onHide === 'function') p.onHide(this);
+	}
 
-		const local = this.container.querySelector('[data-role="tab-local"]');
-		const cam = this.container.querySelector('[data-role="tab-camera"]');
-		if (local)
-			local.className =
-				'button is-small' +
-				(method === 'local' ? ' is-selected mg-tab-active' : '');
-		if (cam)
-			cam.className =
-				'button is-small' +
-				(method === 'camera' ? ' is-selected mg-tab-active' : '');
+	// Register an upload-method plugin (local file, camera, …). Mirrors
+	// hpv-mini-gallery: the plugin gets init(gallery), provides renderArea()
+	// for the active tab, and tears down in destroy().
+	registerUploadPlugin(plugin) {
+		if (!plugin || this._uploadPlugins.includes(plugin)) return;
+		this._uploadPlugins.push(plugin);
+		if (typeof plugin.init === 'function') plugin.init(this);
+		if (!this.uploadMethod) this.uploadMethod = plugin.id; // first = active
+		this._renderTabs();
+		this._renderActiveArea();
+	}
 
-		this._uploadArea.innerHTML = this._renderUploadArea();
+	unregisterUploadPlugin(plugin) {
+		const i = this._uploadPlugins.indexOf(plugin);
+		if (i < 0) return;
+		if (typeof plugin.destroy === 'function') plugin.destroy();
+		this._uploadPlugins.splice(i, 1);
+		if (this.uploadMethod === plugin.id)
+			this.uploadMethod = this._uploadPlugins.length
+				? this._uploadPlugins[0].id
+				: null;
+		this._renderTabs();
+		this._renderActiveArea();
+	}
+
+	setMethod(id) {
+		if (!this._uploadPlugins.some((p) => p.id === id)) return;
+		if (id === this.uploadMethod) return;
+		this._notifyHide(); // stop the outgoing plugin (e.g. camera stream)
+		this.uploadMethod = id;
+		this._renderTabs();
+		this._renderActiveArea();
+		this._clearUploadError();
+		if (this.isUploadOpen) this._notifyShow();
+	}
+
+	// --- plugin-facing helpers ---
+	isFull() {
+		return this._isFull();
+	}
+	showError(msg) {
+		this._showUploadError(msg);
+	}
+	clearError() {
 		this._clearUploadError();
 	}
 
@@ -304,12 +315,12 @@ class HpvMixedGallery {
 		if (this._confirmTimeout) clearTimeout(this._confirmTimeout);
 		if (this._errorTimeout) clearTimeout(this._errorTimeout);
 		this._revokeAllOwnedUrls();
+		this._uploadPlugins.forEach((p) => {
+			if (typeof p.destroy === 'function') p.destroy();
+		});
+		this._uploadPlugins = [];
 		this.container.removeEventListener('click', this._onClick);
 		this.container.removeEventListener('keydown', this._onKeydown);
-		this.container.removeEventListener('change', this._onFileChange);
-		this.container.removeEventListener('dragover', this._onDragOver);
-		this.container.removeEventListener('dragleave', this._onDragLeave);
-		this.container.removeEventListener('drop', this._onDrop);
 		this.container.innerHTML = '';
 		this.items = null;
 		this.container = null;
@@ -362,22 +373,25 @@ class HpvMixedGallery {
 		node.addEventListener('animationend', done);
 	}
 
-	_renderUploadArea() {
-		const L = this.options.labels;
-		if (this.uploadMethod === 'camera') {
-			return `
-				<div class="photon-dropzone" data-action="camera" role="button" tabindex="0" aria-label="${this._escape(L.cameraTitle)}">
-					<span class="icon is-large mb-2 mg-cam-icon"><i class="fa-solid fa-camera fa-2x"></i></span>
-					<p class="is-size-7 has-text-weight-semibold">${L.cameraTitle}</p>
-					<p class="is-size-7 has-text-grey mt-1">${L.cameraHint}</p>
-				</div>`;
-		}
-		return `
-			<div class="photon-dropzone" data-action="pick" data-role="dropzone" role="button" tabindex="0" aria-label="${this._escape(L.localTitle)}">
-				<span class="icon is-large mb-2 mg-up-icon"><i class="fa-solid fa-cloud-arrow-up fa-2x"></i></span>
-				<p class="is-size-7 has-text-weight-semibold">${L.localTitle}</p>
-				<p class="is-size-7 has-text-grey mt-1">${L.acceptHint}</p>
-			</div>`;
+	// Segmented tabs, one per registered upload plugin.
+	_renderTabs() {
+		this._tabs.innerHTML = this._uploadPlugins
+			.map((p) => {
+				const active = p.id === this.uploadMethod;
+				const label = this._escape(
+					(p.options && p.options.label) || p.id,
+				);
+				return `<button class="button is-small${
+					active ? ' is-selected mg-tab-active' : ''
+				}" data-action="method" data-method="${this._escape(p.id)}">${label}</button>`;
+			})
+			.join('');
+	}
+
+	// Render the active plugin's upload UI into the area.
+	_renderActiveArea() {
+		const p = this._uploadPlugins.find((x) => x.id === this.uploadMethod);
+		this._uploadArea.innerHTML = p ? p.renderArea(this) : '';
 	}
 
 	_renderCard(a) {
@@ -457,18 +471,6 @@ class HpvMixedGallery {
 			case 'method':
 				this.setMethod(trigger.dataset.method);
 				break;
-			case 'pick':
-				if (this._isFull()) {
-					this._showUploadError(
-						this.options.labels.galleryFull(this.options.maxItems),
-					);
-				} else {
-					this._fileInput.click();
-				}
-				break;
-			case 'camera':
-				this._simulateCameraSnap();
-				break;
 			case 'item': {
 				const asset = this.items.get(trigger.dataset.id + '');
 				if (asset && this.options.onItemClick)
@@ -490,70 +492,24 @@ class HpvMixedGallery {
 		}
 	}
 
-	// Enter/Space activate the focusable non-button controls (dropzone, cards).
-	// Native <button>s (remove/save/tabs/toggle) handle keyboard themselves.
+	// Enter/Space activate any focusable role="button" control (cards, plugin
+	// dropzones) by synthesizing a click. Native <button>s handle keys natively.
 	_handleKeydown(e) {
 		if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
-		if (
-			!e.target.matches(
-				'[data-action="pick"],[data-action="camera"],[data-action="item"]',
-			)
-		)
+		const el = e.target.closest('[role="button"]');
+		if (!el || el.tagName === 'BUTTON' || !this.container.contains(el))
 			return;
 		e.preventDefault();
-		this._handleClick(e);
-	}
-
-	_handleFileChange(e) {
-		if (!e.target.matches('[data-role="file-input"]')) return;
-		const files = e.target.files;
-		if (!files || !files.length) return;
-		this._addFiles(files);
-		e.target.value = ''; // allow re-selecting the same file
-	}
-
-	// The whole open upload panel is the drop target in local mode — dropping
-	// only on the small dashed box is too easy to miss, and a near-miss lets
-	// the browser hijack the file (opens it, replacing the app).
-	_isLocalDropTarget(e) {
-		return (
-			this.uploadMethod === 'local' &&
-			this.isUploadOpen &&
-			this._panel.contains(e.target)
-		);
-	}
-
-	_setDragover(on) {
-		const zone = this._uploadArea.querySelector('[data-role="dropzone"]');
-		if (zone) zone.classList.toggle('is-dragover', on);
-	}
-
-	_handleDragOver(e) {
-		if (!this._isLocalDropTarget(e)) return;
-		e.preventDefault();
-		this._setDragover(true);
-	}
-
-	_handleDragLeave(e) {
-		// only clear when the drag actually leaves the panel
-		if (!this._panel.contains(e.relatedTarget)) this._setDragover(false);
-	}
-
-	_handleDrop(e) {
-		if (!this._isLocalDropTarget(e)) return;
-		e.preventDefault();
-		this._setDragover(false);
-		const files = e.dataTransfer && e.dataTransfer.files;
-		if (!files || !files.length) return;
-		this._addFiles(files);
+		el.click();
 	}
 
 	_handleSave() {
 		if (this.options.onSave) this.options.onSave(this, this.getAssets());
 	}
 
-	// Add a batch (picker/drop): fill up to the gallery limit, report overflow.
-	_addFiles(fileList) {
+	// Ingest a batch of File objects (called by upload plugins): fill up to the
+	// gallery limit, report overflow, enforce per-file size, create object URLs.
+	addFiles(fileList) {
 		const files = Array.from(fileList);
 		let rejectedForSpace = 0;
 		for (const file of files) {
@@ -605,16 +561,6 @@ class HpvMixedGallery {
 		const id = this.addAsset(asset);
 		if (id) this._objectUrls.add(createdUrl);
 		else URL.revokeObjectURL(createdUrl); // rejected (e.g. full) — don't leak
-	}
-
-	_simulateCameraSnap() {
-		if (this._isFull()) {
-			this._showUploadError(
-				this.options.labels.galleryFull(this.options.maxItems),
-			);
-			return;
-		}
-		this.addAsset({ ...this.options.cameraSnapAsset });
 	}
 
 	// Inline delete confirmation — one card armed at a time, auto-cancels.
