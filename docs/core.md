@@ -113,21 +113,24 @@ Image-type assets (`jpg/jpeg/png/gif/webp`) with a `url` render a real
 
 ## Public API
 
-### Upload panel & methods
+### Upload panel — sources & target
 
 | Method | Description |
 |--------|-------------|
-| `registerUploadPlugin(plugin)` | Register an upload plugin. First registered becomes the active tab. Renders tabs + the active area. |
-| `unregisterUploadPlugin(plugin)` | Remove a plugin (calls its `destroy()`); re-points the active tab if needed. |
-| `setMethod(id)` | Switch the active upload plugin by `id` (calls `onHide`/`onShow`). |
-| `openUpload()` / `closeUpload()` / `toggleUpload()` | Show/hide the upload panel (fires the active plugin's `onShow`/`onHide`). |
+| `registerSource(source)` | Register an upload source (a tab). First registered becomes the active tab. Renders tabs + the active area. |
+| `unregisterSource(source)` | Remove a source (calls its `destroy()`); re-points the active tab if needed. |
+| `setTarget(target)` | Set the storage target (`{ store(acq, ctx) }`); `null` restores the built-in local store. |
+| `setMethod(id)` | Switch the active source by `id` (calls `onHide`/`onShow`). |
+| `openUpload()` / `closeUpload()` / `toggleUpload()` | Show/hide the upload panel (fires the active source's `onShow`/`onHide`). |
+| `registerUploadPlugin` / `unregisterUploadPlugin` | Deprecated aliases of `registerSource`/`unregisterSource`. |
 
 ### Assets
 
 | Method | Description |
 |--------|-------------|
-| `addAsset(asset)` → `id \| null` | Add one asset (used by camera/url/xhr/s3 plugins). Returns the new id, or `null` if rejected (e.g. gallery full, or no `name`). Newest-first (prepended) with an entrance animation. |
-| `addFiles(fileList)` | Ingest a batch of `File`s (used by local/drag plugins). Enforces capacity + per-file size, creates object URLs, surfaces overflow. See [Ingest pipeline](#ingest-pipeline--limits). |
+| `ingest(acquisitions)` | The chokepoint (used by sources). Each acquisition is `{ file }` or `{ url, name?, ext? }`; enforces capacity + per-file size, routes through the active target's `store()`, adds the asset. See [Ingest pipeline](#ingest-pipeline--limits). |
+| `addFiles(fileList)` | Convenience: `ingest(files.map(f => ({ file: f })))`. |
+| `addAsset(asset)` → `id \| null` | Add one asset directly (bypasses the target). Returns the new id, or `null` if rejected (gallery full / no `name`). Newest-first (prepended) with an entrance animation. |
 | `removeAsset(id)` | Remove an asset (exit animation, revokes its owned object URL, fires `onRemove`). |
 | `getAssets()` | Array (shallow clones) of all assets, insertion order. |
 | `getImages()` | Same, filtered to image-type assets (handy for a lightbox gallery). |
@@ -143,18 +146,18 @@ Image-type assets (`jpg/jpeg/png/gif/webp`) with a `url` render a real
 | `destroy()` | Tear down: clear timers, revoke object URLs, destroy plugins, remove listeners, empty the container. |
 | `debug(method, ...args)` | `console[method](...)` when `isDebug` is on. |
 
-> Methods marked "used by plugins" form the **plugin-facing API**, together with
+> Methods marked "used by sources" form the **plugin-facing API**, together with
 > the read props `gallery.container`, `gallery.options`, `gallery.uploadMethod`,
 > `gallery.isUploadOpen`, and the helper `gallery._escape(str)`.
 
-## Plugin registry & lifecycle
+## Source registry & lifecycle
 
-Tabs are generated from the registered plugins (`_renderTabs`) — one
-`<button data-action="method" data-method="<id>">` per plugin, labelled by
-`plugin.options.label` (falling back to `plugin.id`), escaped. The active
-plugin's `renderArea(gallery)` fills the upload area (`_renderActiveArea`).
+Tabs are generated from the registered **sources** (`_renderTabs`) — one
+`<button data-action="method" data-method="<id>">` per source, labelled by
+`source.options.label` (falling back to `source.id`), escaped. The active
+source's `renderArea(gallery)` fills the upload area (`_renderActiveArea`).
 
-Plugin contract (see [plugins](plugins/README.md) for the full guide):
+Source contract (see [Sources & Targets](plugins/README.md) for the full guide):
 
 ```
 { id, options.label, init(gallery), renderArea(gallery) → html, destroy() }
@@ -162,10 +165,10 @@ Plugin contract (see [plugins](plugins/README.md) for the full guide):
 
 Optional lifecycle hooks, called by the core:
 
-- `onShow(gallery)` — the plugin's tab became active **while the panel is open**
-  (on `openUpload`, on `setMethod` to this plugin while open, or on register if
+- `onShow(gallery)` — the source's tab became active **while the panel is open**
+  (on `openUpload`, on `setMethod` to this source while open, or on register if
   it's the active tab and the panel is already open).
-- `onHide(gallery)` — the plugin's tab is leaving (on `closeUpload`, or
+- `onHide(gallery)` — the source's tab is leaving (on `closeUpload`, or
   `setMethod` away). Release resources here (camera stops its stream, Uppy tears
   down its dashboard).
 
@@ -174,25 +177,26 @@ camera tab, and is released when they leave it or close the panel.
 
 ## Ingest pipeline & limits
 
-Plugins hand files to the core through **one** path so every method behaves
-identically:
+Sources acquire bytes/urls and hand them to the core through **one** path, so
+every method behaves identically regardless of source or target:
 
 ```
-addFiles(fileList)  →  _addFromFile(file)  →  addAsset(asset)  →  _insertAsset()
+ingest([{ file } | { url, … }])  →  target.store(acq, ctx)  →  addAsset  →  _insertAsset()
 ```
 
-- `addFiles` (public) enforces the **gallery** limit (`maxItems`): it fills up to
-  remaining capacity, then reports overflow via `labels.limitReached`.
-- `_addFromFile` enforces the **per-file** size limit (`maxSizeMB`) via
-  `labels.tooLarge` (and fires `onReject`), then creates an `object URL` for the
-  file (tracked for revocation) and calls `addAsset`.
-- `addAsset` has a hard `isFull()` backstop and assigns the id.
-- `_insertAsset` is the only place a card is created; it's also used by
-  `_loadItems` for initial `items` (which bypass the limits).
+- `ingest` (public) enforces the **gallery** limit (`maxItems`, overflow →
+  `labels.limitReached`) and the **per-file** size limit (`maxSizeMB` →
+  `labels.tooLarge` + `onReject`), then routes each acquisition through the active
+  target's `store()` (or the built-in `_localStore` when no target is set).
+- `addFiles(fileList)` is a thin wrapper: `ingest(files.map(f => ({ file: f })))`.
+- `addAsset` has a hard `isFull()` backstop and assigns the id; `_insertAsset` is
+  the only place a card is created (also used by `_loadItems`, which bypasses limits).
 
-Object-URL lifecycle: the core only revokes URLs **it** created (uploaded files).
-Caller-supplied URLs (remote/data/server) are never revoked. Revocation happens
-in `removeAsset`, `clear`, and `destroy`.
+Targets get a `ctx`: `ctx.objectUrl(blob)` creates a **core-tracked** object URL
+(the built-in local target uses this for file previews), `ctx.progress(msg)`
+surfaces an upload-progress line. The core revokes only URLs **it** created;
+caller/target-supplied URLs (server/S3/remote) are never revoked. Revocation
+happens in `removeAsset`, `clear`, and `destroy`.
 
 ## Capacity UX
 

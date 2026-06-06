@@ -19,22 +19,24 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
 <link rel="stylesheet" href="src/css/hpv-mixed-gallery.css">
 <div id="media-library"></div>
 <script src="src/js/hpv-mixed-gallery.js"></script>
-<script src="src/js/plugins/local-upload.js"></script>
-<script src="src/js/plugins/camera-capture.js"></script>
+<script src="src/js/sources/local.js"></script>
+<script src="src/js/sources/camera.js"></script>
 <script>
   const gallery = new HpvMixedGallery('media-library', {
     items: [{ name: 'config.pdf', size: '2.4 MB', ext: 'PDF' }],
     onSave: (c, assets) => console.log(assets),
   });
 
-  // Upload methods are plugins — register them (first registered = active tab).
-  gallery.registerUploadPlugin(new HpvLocalUpload());
-  gallery.registerUploadPlugin(new HpvCameraCapture());
+  // SOURCES are the tabs (first registered = active). The TARGET is where bytes
+  // go — default keeps them in the gallery; setTarget to upload elsewhere.
+  gallery.registerSource(new HpvLocalSource());
+  gallery.registerSource(new HpvCameraSource());
+  // gallery.setTarget(new HpvS3Target({ sign }));   // e.g. upload everything to S3
 </script>
 ```
 
-Without any registered plugin the upload panel has no methods (empty tabs);
-the rest of the gallery (grid, delete, save, preview hooks) still works.
+Without any registered source the upload panel has no tabs; the rest of the
+gallery (grid, delete, save, preview hooks) still works.
 
 ## Options
 
@@ -72,49 +74,51 @@ new HpvMixedGallery('id', {
 
 ## Public API
 
-`addAsset({name, size, ext, url?})` → id · `addFiles(fileList)` (used by plugins) ·
-`removeAsset(id)` · `getAssets()` · `getImages()` (image-type only) · `getCount()` ·
-`isFull()` · `clear()` · `showError(msg)` / `clearError()` ·
-`openUpload()` / `closeUpload()` / `toggleUpload()` ·
-`registerUploadPlugin(plugin)` / `unregisterUploadPlugin(plugin)` ·
-`setMethod(pluginId)` · `destroy()`
+`ingest(acquisitions)` (the chokepoint, used by sources) · `addFiles(fileList)` ·
+`addAsset({name, size, ext, url?})` → id · `removeAsset(id)` · `getAssets()` ·
+`getImages()` (image-type only) · `getCount()` · `isFull()` · `clear()` ·
+`showError(msg)` / `clearError()` · `openUpload()` / `closeUpload()` / `toggleUpload()` ·
+`registerSource(source)` / `unregisterSource(source)` · `setTarget(target)` ·
+`setMethod(sourceId)` · `destroy()`
+(`registerUploadPlugin` / `unregisterUploadPlugin` remain as deprecated aliases.)
 
-## Upload plugins
+## Sources & Targets
 
-Each upload **method** is a plugin (mirrors hpv-mini-gallery). Register them after
-construction; the first registered is the active tab. Four ship in `src/js/plugins/`:
+Uploading is split into two composable concerns. **Sources** are *where bytes come
+from* (the tabs); **targets** are *where they're stored* (config, not a tab). Any
+source composes with any target. Full guide: [docs/plugins/README.md](docs/plugins/README.md).
 
-- **`HpvLocalUpload`** (`local-upload.js`) — file picker + drag-and-drop. Options:
-  `id`, `label`, `title`, `hint`, `accept`, `multiple`.
-- **`HpvCameraCapture`** (`camera-capture.js`) — **real WebRTC** capture: live
-  `<video>` preview, capture → JPEG blob → `addFiles`. Options: `id`, `label`,
-  `idleText`, `captureLabel`, `flipLabel`, `quality`, `maxWidth`, `facingMode`.
-  Needs a **secure context** (HTTPS or `http://localhost`) and camera permission;
-  degrades to a message otherwise.
-- **`HpvXhrUpload`** (`xhr-upload.js`) — picker/drag-drop that POSTs each file to
-  a server as multipart with progress, then adds the asset using the returned URL.
-  Options: `id`, `label`, `title`, `hint`, `accept`, `endpoint`, `fieldName`,
-  `headers`, `withCredentials`, `timeout`, `responseParser`, callbacks.
-- **`HpvUppyUpload`** (`uppy-upload.js`) — inline **Uppy Dashboard** (requires the
-  Uppy bundle + CSS on the page). `mode: 'local'` adds chosen files straight to the
-  gallery (no server); `mode: 'xhr'` uploads via Uppy's XHRUpload to `endpoint`.
-- **`HpvUrlImport`** (`url-import.js`) — paste a remote file URL. A URL field +
-  Add button adds an asset referencing the URL. Options: `id`, `label`,
-  `placeholder`, `hint`, `addLabel`, `mode` (`'reference'` stores the URL as-is —
-  default; `'fetch'` downloads → blob → `addFiles`, subject to CORS), `validate`,
-  `nameFrom`. Type is inferred from the URL's extension (extensionless URLs are
-  treated as generic files).
-- **`HpvS3Upload`** (`s3-upload.js`) — **direct-to-S3** signed upload. The browser
-  holds no AWS keys: per file it gets signed params from your backend, then uploads
-  straight to S3 (presigned **PUT** of raw bytes, or presigned **POST** with policy
-  `fields`), and adds the asset with its public URL. Options: `id`, `label`, `title`,
-  `hint`, `accept`, `multiple`, `sign(file)` **or** `signEndpoint` (+ `signMethod`,
+**Sources** (`src/js/sources/`, register with `registerSource`; first = active tab):
+
+- **`HpvLocalSource`** (`local.js`) — file picker + drag-and-drop. Options: `id`,
+  `label`, `title`, `hint`, `accept`, `multiple`.
+- **`HpvCameraSource`** (`camera.js`) — **real WebRTC**: live preview, capture →
+  JPEG → `addFiles`. Needs HTTPS/localhost. Options: `id`, `label`, `idleText`,
+  `captureLabel`, `flipLabel`, `quality`, `maxWidth`, `facingMode`, `fileName`.
+- **`HpvUrlSource`** (`url.js`) — paste a remote URL; emits a `{ url }` acquisition
+  (the target decides whether to fetch). Options: `id`, `label`, `placeholder`,
+  `hint`, `addLabel`, `validate`, `nameFrom`.
+- **`HpvUppySource`** (`uppy.js`) — inline **Uppy Dashboard** (needs the Uppy
+  bundle + CSS). Options: `id`, `label`, `height`, `note`, `uppyOptions`,
+  `dashboardOptions`.
+
+**Targets** (`src/js/targets/`, set one with `setTarget`):
+
+- **built-in local** (default; no `setTarget`) — keep in the gallery: files get a
+  tracked object URL, URLs are kept by reference.
+- **`HpvXhrTarget`** (`xhr.js`) — multipart `POST` per file with progress. Options:
+  `id`, `endpoint`, `fieldName`, `headers`, `withCredentials`, `timeout`,
+  `responseParser`.
+- **`HpvS3Target`** (`s3.js`) — direct browser→S3 signed upload (PUT/POST); browser
+  holds no AWS keys. Options: `sign(file)` **or** `signEndpoint` (+ `signMethod`,
   `signHeaders`), `method`, `fieldName`, `headers`, `withCredentials`, `timeout`,
-  `publicUrl(file, signed)`, and callbacks `onUploadProgress/onUploadSuccess/onUploadError/onSignError`.
+  `publicUrl(file, signed)`.
 
 ```js
-// S3 example — sign on your backend, upload direct from the browser
-gallery.registerUploadPlugin(new HpvS3Upload({
+// any source → S3: register sources, set the S3 target once
+gallery.registerSource(new HpvLocalSource());
+gallery.registerSource(new HpvCameraSource());
+gallery.setTarget(new HpvS3Target({
   sign: async (file) => {
     const r = await fetch('/api/s3-sign', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -125,26 +129,14 @@ gallery.registerUploadPlugin(new HpvS3Upload({
 }));
 ```
 
-The contract supports optional `onShow(gallery)` / `onHide(gallery)` lifecycle
-hooks (called when a tab becomes active / inactive and on open/close) — the camera
-uses them to start/stop its stream, Uppy to mount/teardown its dashboard.
-
-**Plugin contract** (write your own — paste-from-clipboard, cloud picker, …):
-
-```js
-class MyUpload {
-  constructor(opts = {}) { this.id = opts.id || 'mine'; this.options = { label: 'My source', ...opts }; }
-  init(gallery)   { /* save ref; add delegated listeners on gallery.container */ }
-  renderArea(g)   { return `<div ...>…</div>`; }   // HTML for the active tab
-  onShow(g)       { /* optional: tab became active (panel open) */ }
-  onHide(g)       { /* optional: tab left / panel closed — release resources */ }
-  destroy()       { /* remove your listeners */ }
-}
-```
-
-Feed files/assets back through the core (it owns limits, object URLs, and error
-messaging): `gallery.addFiles(fileList)`, `gallery.addAsset(asset)`. Read
-`gallery.isFull()` and surface messages via `gallery.showError(msg)`.
+**Contracts.** A **source** is `{ id, options.label, init(gallery),
+renderArea(gallery)→html, destroy(), onShow?, onHide? }` and acquires bytes/urls
+then calls `gallery.ingest([{ file } | { url }])`. A **target** is
+`{ id, store(acq, ctx) => Promise<asset|null> }`; `ctx.objectUrl(blob)` makes a
+core-tracked URL and `ctx.progress(msg)` shows a progress line. The core owns
+limits, object-URL lifecycle, and error messaging. `registerUploadPlugin` is a
+deprecated alias of `registerSource` (a combo plugin = a source that stores its
+own bytes). See [docs/plugins/](docs/plugins/README.md) for a write-your-own walkthrough.
 
 ### Item click / previewer
 

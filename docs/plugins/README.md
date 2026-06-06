@@ -1,149 +1,157 @@
-# Plugins — the upload-method system
+# Sources & Targets — the upload plugin system
 
-Every **upload method** in hpv-mixed-gallery is a plugin. The core ships no
-upload UI; you register one or more plugins and each becomes a tab in the
-"Origem do arquivo" segmented control. This mirrors hpv-mini-gallery's plugin
-approach, adapted to the mixed-gallery's tabbed panel.
+Uploading is split into two composable, separately-registered concerns:
+
+- **Source** — *where bytes come from* (local picker, camera, URL, Uppy). Each is
+  a **tab** in the panel and acquires files/urls.
+- **Target** — *where they're stored* (kept in the gallery, POSTed to a server,
+  uploaded to S3). The active target is **integrator config**, not a tab.
+
+This decomposition (see [the proposal](../proposals/source-target.md)) removes the
+source × target combinatorial explosion: any source composes with any target.
 
 - [Registering](#registering)
-- [The contract](#the-contract)
+- [Source contract](#source-contract)
+- [Target contract](#target-contract)
 - [Lifecycle hooks](#lifecycle-hooks)
 - [Plugin-facing core API](#plugin-facing-core-api)
 - [Conventions](#conventions)
 - [Write your own](#write-your-own)
-- [Shipped plugins](#shipped-plugins)
+- [Shipped sources & targets](#shipped-sources--targets)
+- [Back-compat](#back-compat)
 
 ## Registering
 
 ```js
-const gallery = new HpvMixedGallery('media-library', { maxItems: 12 });
-gallery.registerUploadPlugin(new HpvLocalUpload());   // first → active tab
-gallery.registerUploadPlugin(new HpvCameraCapture());
+const g = new HpvMixedGallery('media-library', { maxItems: 12 });
+g.registerSource(new HpvLocalSource());    // first → active tab
+g.registerSource(new HpvCameraSource());
+g.registerSource(new HpvUrlSource());
+g.setTarget(new HpvS3Target({ sign }));    // where everything goes (default: gallery/local)
 ```
 
-- Register **after** construction. The **first** registered plugin is the active
-  tab.
-- Each registration (re)renders the tab row and the active area.
-- `gallery.unregisterUploadPlugin(plugin)` removes it (and calls its `destroy()`).
-- `gallery.setMethod(pluginId)` switches tabs programmatically.
+- Register **sources** after construction; the first is the active tab. Their
+  `options.label` drives the tab text (configurable).
+- Set **one** target with `setTarget` (or pass `{ target }` in the constructor).
+  No `setTarget` → the built-in **local** target (keep in the gallery).
+- `unregisterSource(source)` removes a tab; `setMethod(id)` switches tabs.
 
-The tab **label** is `plugin.options.label` (falling back to `plugin.id`), so it
-is configurable per plugin: `new HpvLocalUpload({ label: 'Do computador' })`.
+## Source contract
 
-## The contract
+```js
+{
+  id: string,                      // tab id + DOM scope (data-plugin="<id>")
+  options: { label: string, ... }, // label = tab text
+  init(gallery): void,             // store ref; add delegated listeners on gallery.container
+  renderArea(gallery): string,     // the tab's HTML
+  destroy(): void,                 // remove your listeners / release resources
+  onShow?(gallery): void,          // optional: tab active + panel open
+  onHide?(gallery): void,          // optional: tab left / panel closed
+}
+```
 
-A plugin is any object/instance with:
+A source acquires bytes/urls then calls **`gallery.ingest([...acquisitions])`**
+(or `gallery.addFiles(fileList)` for raw `File`s). It does **not** decide storage.
 
-| Member | Required | Purpose |
-|--------|----------|---------|
-| `id` | ✅ | Unique string; used as the tab's `data-method` and to scope the plugin's DOM (`data-plugin="<id>"`). |
-| `options.label` | recommended | The tab button text (defaults to `id`). |
-| `init(gallery)` | ✅ | Store the gallery ref and add your delegated listeners on `gallery.container`. |
-| `renderArea(gallery)` → html string | ✅ | The HTML shown in the upload area when this plugin's tab is active. |
-| `destroy()` | ✅ | Remove your listeners / release resources. |
-| `onShow(gallery)` | optional | Tab became active while the panel is open. |
-| `onHide(gallery)` | optional | Tab is leaving / panel closing. |
+An **acquisition** is `{ file: File }` or `{ url, name?, ext? }`.
 
-The core inserts your `renderArea()` HTML into the shared upload area and calls
-the lifecycle hooks; **your own** event handling drives the rest.
+## Target contract
+
+```js
+{
+  id: string,
+  // Persist ONE acquisition; resolve to the asset to add, or null to skip.
+  // Throw an Error(message) on failure — the core surfaces it via showError.
+  store(acq, ctx): Promise<{ name, size?, ext?, url? } | null>,
+}
+```
+
+`ctx` given to `store()`:
+
+| Member | Purpose |
+|--------|---------|
+| `ctx.gallery` / `ctx.options` / `ctx.labels` | the instance + config |
+| `ctx.objectUrl(blob) => url` | a **core-tracked** object URL (revoked on remove/`clear`/`destroy`) |
+| `ctx.progress(msg)` | show an upload-progress line in the panel |
+
+The core calls `store()` **after** enforcing capacity + per-file size, so a target
+only persists and returns the asset. A target that needs bytes for a `{ url }`
+acquisition should fetch it (the shipped XHR/S3 targets do, CORS-permitting).
 
 ## Lifecycle hooks
 
-The core calls these (when present), gated to when the panel is open:
-
-- `onShow(gallery)` — on `openUpload`, on `setMethod` to this plugin (panel open),
-  or on register if this is the active tab and the panel is already open.
-- `onHide(gallery)` — on `closeUpload`, or on `setMethod` away from this plugin.
-
-Use them to acquire/release scarce resources. Examples in this repo: the camera
-starts/stops its `getUserMedia` stream; the Uppy plugin mounts/tears down its
-Dashboard instance.
-
-Plugins that are pure DOM (local/xhr/s3/url) don't need the hooks — their
-listeners are delegated on the container and survive area re-renders.
+The core calls these on **sources** (when present), gated to when the panel is
+open: `onShow` (tab became active) / `onHide` (tab leaving / panel closing). Use
+them to acquire/release resources — the camera starts/stops `getUserMedia`, Uppy
+mounts/tears down its Dashboard.
 
 ## Plugin-facing core API
 
-What a plugin may use on the `gallery` it's given:
-
 | Member | Use |
 |--------|-----|
-| `gallery.container` | Attach delegated listeners; query your elements. |
-| `gallery.options` | Read config, incl. `options.labels` (for `galleryFull`, etc.). |
-| `gallery.uploadMethod` | The active plugin id (to check if you're active). |
-| `gallery.isUploadOpen` | Whether the panel is open. |
-| `gallery.addFiles(fileList)` | Ingest `File`s — enforces size/capacity, creates object URLs, shows errors. |
-| `gallery.addAsset({name,size,ext,url})` → id | Add one asset directly (when you already have a URL, e.g. camera/url/server). |
-| `gallery.isFull()` | Capacity check. |
-| `gallery.showError(msg)` / `clearError()` | Surface a calm message in the panel. |
-| `gallery._escape(str)` | HTML-escape strings you interpolate into `renderArea`. |
-
-**Rule of thumb:** if you have raw `File` objects, use `addFiles` (so the core
-handles limits + object-URL lifecycle + thumbnails). If you only have a URL
-(remote/server/signed), use `addAsset({ …, url })`.
+| `gallery.ingest(acquisitions)` | the chokepoint — capacity + size + active target + add. |
+| `gallery.addFiles(fileList)` | convenience: `ingest(files.map(f => ({file:f})))`. |
+| `gallery.addAsset({name,size,ext,url})` | add one asset directly (bypasses the target). |
+| `gallery.isFull()` | capacity check. |
+| `gallery.showError(msg)` / `clearError()` | panel messages. |
+| `gallery.container`, `gallery.options`, `gallery.uploadMethod`, `gallery.isUploadOpen` | read state. |
+| `gallery._escape(str)` | escape strings for `renderArea`. |
 
 ## Conventions
 
-- **Scope your DOM** with `data-plugin="<id>"` and query within
-  `gallery.container`. Two plugins' listeners coexist on the container; each
-  ignores events that don't match its own elements.
-- **Delegate** on `gallery.container` in `init`, and remove the exact same
-  handler refs in `destroy`. The area is re-rendered on tab switches, so
-  delegation (not per-element binding) is required.
-- **Escape** any string interpolated into `renderArea` via `gallery._escape`.
-- **Capacity:** check `gallery.isFull()` before acquiring/uploading and call
-  `gallery.showError(gallery.options.labels.galleryFull(gallery.options.maxItems))`.
+- **Scope** source DOM with `data-plugin="<id>"`; query within `gallery.container`.
+- **Delegate** listeners on `gallery.container` in `init`; remove them in
+  `destroy` (the area re-renders on tab switch).
+- **Escape** strings interpolated into `renderArea` via `gallery._escape`.
+- Sources hand bytes to the core; **targets** are where network/storage logic
+  lives. If you have raw `File`s, prefer `ingest`/`addFiles` (so limits + object
+  URLs are handled centrally).
 
 ## Write your own
 
-A minimal "paste-from-clipboard-as-text-file" plugin:
+A **source** (clipboard text):
 
 ```js
-class HpvClipboardText {
-  constructor(opts = {}) {
-    this.id = opts.id || 'clipboard';
-    this.options = { label: opts.label || 'Texto', addLabel: opts.addLabel || 'Colar', ...opts };
-  }
-  init(gallery) {
-    this.gallery = gallery;
-    this._onClick = (e) => {
-      if (!e.target.closest(`[data-role="paste"][data-plugin="${this.id}"]`)) return;
-      navigator.clipboard.readText().then((text) => {
-        if (!text) return;
-        if (this.gallery.isFull()) {
-          const o = this.gallery.options;
-          return this.gallery.showError(o.labels.galleryFull(o.maxItems));
-        }
-        const file = new File([text], `nota-${Date.now()}.txt`, { type: 'text/plain' });
-        this.gallery.addFiles([file]); // core makes the object URL + card
-      });
-    };
-    gallery.container.addEventListener('click', this._onClick);
-  }
-  renderArea(g) {
-    const esc = (s) => g._escape(s);
-    return `<button class="button is-small is-dark mg-accent-btn"
-              type="button" data-role="paste" data-plugin="${esc(this.id)}">${esc(this.options.addLabel)}</button>`;
-  }
-  destroy() {
-    if (this.gallery) this.gallery.container.removeEventListener('click', this._onClick);
-    this.gallery = null;
-  }
+class HpvClipboardSource {
+  constructor(o = {}) { this.id = o.id || 'clipboard'; this.options = { label: o.label || 'Texto', ...o }; }
+  init(g) { this.gallery = g; this._onClick = (e) => {
+    if (!e.target.closest(`[data-plugin="${this.id}"]`)) return;
+    navigator.clipboard.readText().then((t) => t && g.ingest([{ file: new File([t], `nota-${Date.now()}.txt`, { type: 'text/plain' }) }]));
+  }; g.container.addEventListener('click', this._onClick); }
+  renderArea(g) { return `<button class="button is-small is-dark mg-accent-btn" type="button" data-plugin="${g._escape(this.id)}">Colar</button>`; }
+  destroy() { this.gallery?.container.removeEventListener('click', this._onClick); this.gallery = null; }
 }
-
-gallery.registerUploadPlugin(new HpvClipboardText());
 ```
 
-## Shipped plugins
+A **target** (anything with `store`):
 
-| Plugin | File | Summary |
-|--------|------|---------|
-| [`HpvLocalUpload`](local-upload.md) | `local-upload.js` | File picker + whole-panel drag-and-drop. |
-| [`HpvCameraCapture`](camera-capture.md) | `camera-capture.js` | Real WebRTC: live preview + capture (needs HTTPS/localhost). |
-| [`HpvXhrUpload`](xhr-upload.md) | `xhr-upload.js` | Multipart `POST` per file with progress. |
-| [`HpvUppyUpload`](uppy-upload.md) | `uppy-upload.js` | Inline Uppy Dashboard (needs the Uppy bundle). |
-| [`HpvS3Upload`](s3-upload.md) | `s3-upload.js` | Direct browser→S3 signed upload (PUT/POST). |
-| [`HpvUrlImport`](url-import.md) | `url-import.js` | Add a file from a pasted remote URL. |
+```js
+class HpvConsoleTarget {
+  id = 'console';
+  async store(acq, ctx) {
+    const f = acq.file ?? new File([], acq.name || 'ref');
+    console.log('would upload', f.name);
+    return { name: f.name, size: '', ext: (f.name.split('.').pop() || '').toUpperCase(),
+             url: acq.url ?? ctx.objectUrl(f) };
+  }
+}
+g.setTarget(new HpvConsoleTarget());
+```
 
-All six follow the same constructor shape: `new Plugin(options)` where `options`
-always includes at least `id` and `label`. See each doc for the full option set.
+## Shipped sources & targets
+
+| Sources (`src/js/sources/`) | Targets (`src/js/targets/`) |
+|---|---|
+| [`HpvLocalSource`](sources.md#hpvlocalsource) — picker + drag-drop | **built-in local** (default; no file) — keep in the gallery |
+| [`HpvCameraSource`](sources.md#hpvcamerasource) — real WebRTC | [`HpvXhrTarget`](targets.md#hpvxhrtarget) — multipart `POST` |
+| [`HpvUrlSource`](sources.md#hpvurlsource) — paste a URL | [`HpvS3Target`](targets.md#hpvs3target) — direct-to-S3 signed |
+| [`HpvUppySource`](sources.md#hpvuppysource) — Uppy Dashboard | |
+
+Full options in [sources.md](sources.md) and [targets.md](targets.md).
+
+## Back-compat
+
+`registerUploadPlugin(plugin)` / `unregisterUploadPlugin(plugin)` are deprecated
+aliases of `registerSource`/`unregisterSource`. A combo "upload plugin" still
+works — it's a source that does its own storage (calls `addFiles`/`addAsset`
+directly) instead of relying on a target.
