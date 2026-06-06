@@ -215,6 +215,7 @@
 		<script src="src/js/plugins/xhr-upload.js"></script>
 		<script src="src/js/plugins/uppy-upload.js"></script>
 		<script src="src/js/plugins/s3-upload.js"></script>
+		<script src="src/js/plugins/url-import.js"></script>
 		<script>
 			// Demo-only: the gallery fires onItemClick for ANY card; the host
 			// decides what to do based on the asset's type/extension. Images open
@@ -508,6 +509,8 @@
 						}),
 				}),
 			);
+			// paste a remote URL → card references it (no server needed)
+			gallery.registerUploadPlugin(new HpvUrlImport());
 		</script>
 	</body>
 </html>
