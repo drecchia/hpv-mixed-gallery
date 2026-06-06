@@ -19,6 +19,11 @@
 			rel="stylesheet"
 			href="https://cdn.jsdelivr.net/npm/hpv-image-previewer@1.0.2/dist/css/all.css"
 		/>
+		<!-- Uppy (demo-only, for the Uppy upload plugin) -->
+		<link
+			rel="stylesheet"
+			href="https://releases.transloadit.com/uppy/v3.27.3/uppy.min.css"
+		/>
 		<!-- Component styles -->
 		<link rel="stylesheet" href="src/css/hpv-mixed-gallery.css" />
 		<style>
@@ -203,6 +208,12 @@
 		<script src="https://cdn.jsdelivr.net/npm/hpv-image-previewer@1.0.2/dist/js/all.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 		<script src="src/js/hpv-mixed-gallery.js"></script>
+		<!-- upload-method plugins (registered after construction) -->
+		<script src="https://releases.transloadit.com/uppy/v3.27.3/uppy.min.js"></script>
+		<script src="src/js/plugins/local-upload.js"></script>
+		<script src="src/js/plugins/camera-capture.js"></script>
+		<script src="src/js/plugins/xhr-upload.js"></script>
+		<script src="src/js/plugins/uppy-upload.js"></script>
 		<script>
 			// Demo-only: the gallery fires onItemClick for ANY card; the host
 			// decides what to do based on the asset's type/extension. Images open
@@ -350,26 +361,6 @@
 				}),
 			);
 
-			// demo-only: synthesize a real "captured" photo so the camera card has
-			// a thumbnail and is previewable (the simulated capture has no file).
-			function makeCameraImage() {
-				const c = document.createElement('canvas');
-				c.width = 640;
-				c.height = 480;
-				const ctx = c.getContext('2d');
-				const g = ctx.createLinearGradient(0, 0, 640, 480);
-				g.addColorStop(0, '#1e293b');
-				g.addColorStop(1, '#64748b');
-				ctx.fillStyle = g;
-				ctx.fillRect(0, 0, 640, 480);
-				ctx.fillStyle = 'rgba(255,255,255,0.9)';
-				ctx.font = 'bold 36px sans-serif';
-				ctx.textAlign = 'center';
-				ctx.fillText('CAPTURA DE CÂMERA', 320, 250);
-				return c.toDataURL('image/jpeg', 0.85);
-			}
-			const cameraImageUrl = makeCameraImage();
-
 			// files without a preview (csv/xlsx/other) download on click
 			async function downloadAsset(asset) {
 				if (!asset.url) {
@@ -395,12 +386,6 @@
 
 			const gallery = new HpvMixedGallery('media-library', {
 				maxItems: 12,
-				cameraSnapAsset: {
-					name: 'foto_painel_hardware.jpg',
-					size: '840 KB',
-					ext: 'JPG',
-					url: cameraImageUrl, // real image -> thumbnail + previewable
-				},
 				items: [
 					// image assets carry a `url` so the previewer has something to show.
 					// Varied dimensions to exercise the cover-fit thumbnail + previewer.
@@ -485,6 +470,21 @@
 				onSave: (c, assets) =>
 					alert(`Galeria salva com ${assets.length} item(ns)!`),
 			});
+
+			// Upload methods are plugins — register them (first = active tab).
+			gallery.registerUploadPlugin(new HpvLocalUpload());
+			gallery.registerUploadPlugin(new HpvCameraCapture()); // real WebRTC
+			gallery.registerUploadPlugin(
+				// demo endpoint just echoes; for real use, point at your upload API
+				new HpvXhrUpload({
+					label: 'Servidor',
+					endpoint: 'https://httpbin.org/post',
+				}),
+			);
+			gallery.registerUploadPlugin(
+				// local mode adds chosen files straight to the gallery (no server)
+				new HpvUppyUpload({ mode: 'local' }),
+			);
 		</script>
 	</body>
 </html>
