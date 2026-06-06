@@ -20,6 +20,7 @@ class HpvMixedGallery {
 			animate: true, // micro-interactions (panel reveal, icon morph, button feedback)
 			confirmRemove: true, // require an inline confirm before deleting a card
 			target: null, // storage Target { store(acq, ctx) }; null = built-in local store
+			readOnly: false, // view-only: hide upload/delete/save UI; previews still work
 			// --- all user-facing copy (override any single string; pt-BR defaults).
 			//     Upload-method strings (tab label, dropzone copy) live in the
 			//     registered upload plugins, not here.
@@ -78,6 +79,7 @@ class HpvMixedGallery {
 		this.uploadMethod = null; // active source id (set on register)
 		this._sources = []; // registered upload sources (the tabs)
 		this._target = this.options.target || null; // active storage target
+		this.readOnly = !!this.options.readOnly; // view-only mode
 		this._seq = 0;
 		this._confirmingId = null; // card currently armed for delete (one at a time)
 		this._confirmTimeout = null;
@@ -104,7 +106,7 @@ class HpvMixedGallery {
 		const o = this.options;
 		const L = o.labels;
 		this.container.innerHTML = `
-			<div class="hpv-mixed-gallery${o.animate ? '' : ' mg-no-motion'}">
+			<div class="hpv-mixed-gallery${o.animate ? '' : ' mg-no-motion'}${o.readOnly ? ' is-readonly' : ''}">
 				<div class="columns is-mobile is-vcentered mb-5">
 					<div class="column">
 						<h1 class="title is-5 mb-1 mg-title">${L.title}</h1>
@@ -193,6 +195,7 @@ class HpvMixedGallery {
 	}
 
 	openUpload() {
+		if (this.readOnly) return; // no uploading in view-only mode
 		this.isUploadOpen = true;
 		this._panel.classList.add('is-open');
 		this._toggleIcon.classList.add('is-rotated'); // plus rotates into an ×
@@ -252,6 +255,16 @@ class HpvMixedGallery {
 	// null restores the built-in local store (object URL for files, ref for urls).
 	setTarget(target) {
 		this._target = target || null;
+	}
+
+	// Toggle view-only mode after creation: hides the upload toggle + panel, the
+	// save button, per-card delete, and the empty-state add button (CSS via
+	// .is-readonly), and blocks UI-driven mutations. Item preview still works, and
+	// the programmatic API (addAsset/removeAsset/ingest/…) is unaffected.
+	setReadOnly(on) {
+		this.readOnly = !!on;
+		this._root.classList.toggle('is-readonly', this.readOnly);
+		if (this.readOnly && this.isUploadOpen) this.closeUpload();
 	}
 
 	// Deprecated aliases — a combo "upload plugin" is just a source that does its
@@ -481,6 +494,10 @@ class HpvMixedGallery {
 	_handleClick(e) {
 		const trigger = e.target.closest('[data-action]');
 		if (!trigger) return;
+
+		// view-only: allow item preview, block every mutating action (defense in
+		// depth — the controls are also hidden via .is-readonly CSS)
+		if (this.readOnly && trigger.dataset.action !== 'item') return;
 
 		switch (trigger.dataset.action) {
 			case 'toggle-upload':

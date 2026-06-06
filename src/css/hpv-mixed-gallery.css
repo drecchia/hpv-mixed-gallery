@@ -185,6 +185,15 @@
 	color: var(--mg-text-sub);
 }
 
+/* Read-only mode: hide every mutation affordance; previews still work */
+.hpv-mixed-gallery.is-readonly [data-action='toggle-upload'],
+.hpv-mixed-gallery.is-readonly .upload-disclosure-panel,
+.hpv-mixed-gallery.is-readonly .mg-save-btn,
+.hpv-mixed-gallery.is-readonly .mg-card-actions,
+.hpv-mixed-gallery.is-readonly .mg-empty-btn {
+	display: none !important;
+}
+
 /* Uppy plugin */
 .hpv-mixed-gallery .mg-uppy {
 	min-height: 120px;
