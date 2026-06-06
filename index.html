@@ -307,6 +307,36 @@
 				}
 			}
 
+			// demo-only: a real downloadable blob for the spreadsheet card
+			const sampleCsvUrl = URL.createObjectURL(
+				new Blob(['Item,Qtd\nSwitch,2\nPatch panel,1\nServidor,4\n'], {
+					type: 'text/csv',
+				}),
+			);
+
+			// files without a preview (csv/xlsx/other) download on click
+			async function downloadAsset(asset) {
+				if (!asset.url) {
+					console.log('sem fonte para download:', asset.name);
+					return;
+				}
+				try {
+					const res = await fetch(asset.url);
+					const blob = await res.blob();
+					const obj = URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = obj;
+					a.download = asset.name;
+					document.body.appendChild(a);
+					a.click();
+					a.remove();
+					URL.revokeObjectURL(obj);
+				} catch (err) {
+					window.open(asset.url, '_blank'); // fallback (e.g. CORS)
+					console.error(err);
+				}
+			}
+
 			const gallery = new HpvMixedGallery('media-library', {
 				maxItems: 12,
 				items: [
@@ -361,9 +391,10 @@
 						url: 'https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf',
 					},
 					{
-						name: 'inventario_rack.xlsx',
+						name: 'inventario_rack.csv', // no preview -> downloads on click
 						size: '512 KB',
-						ext: 'XLSX',
+						ext: 'CSV',
+						url: sampleCsvUrl,
 					},
 				],
 				onAdd: (c, asset) => console.log('add', asset),
@@ -387,11 +418,7 @@
 						openPdf(asset.url, asset.name); // pdf.js overlay
 						return;
 					}
-					console.log(
-						'item clicked (no preview):',
-						asset.name,
-						asset.ext,
-					);
+					downloadAsset(asset); // no preview -> download
 				},
 				onSave: (c, assets) =>
 					alert(`Galeria salva com ${assets.length} item(ns)!`),

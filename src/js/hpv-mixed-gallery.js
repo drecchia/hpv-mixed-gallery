@@ -579,17 +579,13 @@ class HpvMixedGallery {
 			size: this._formatSize(file.size),
 			ext: this._extOf(file.name),
 		};
-		// Image files get an object URL so they're previewable via onItemClick.
-		let createdUrl = null;
-		if (this._isImage(asset.ext)) {
-			createdUrl = URL.createObjectURL(file);
-			asset.url = createdUrl;
-		}
+		// Every uploaded file gets an object URL: preview for images/PDF,
+		// download for the rest — all reachable via onItemClick.
+		const createdUrl = URL.createObjectURL(file);
+		asset.url = createdUrl;
 		const id = this.addAsset(asset);
-		if (createdUrl) {
-			if (id) this._objectUrls.add(createdUrl);
-			else URL.revokeObjectURL(createdUrl); // rejected (e.g. full) — don't leak
-		}
+		if (id) this._objectUrls.add(createdUrl);
+		else URL.revokeObjectURL(createdUrl); // rejected (e.g. full) — don't leak
 	}
 
 	_simulateCameraSnap() {
