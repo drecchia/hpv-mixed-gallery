@@ -135,3 +135,6 @@ should stay on the tab while sending photos.
 
 **Setup:** requires the `node-telegram2ws` bridge running (a Telegram bot token +
 the WS server). Point `url` at it; cross-origin needs `wss://` from an HTTPS page.
+For a local demo without a real bot, run the bundled zero-dep mock —
+`node mock/telegram2ws-mock.js` — and use its `/sim` page to push photos (see
+[mock/README.md](../../mock/README.md)).
