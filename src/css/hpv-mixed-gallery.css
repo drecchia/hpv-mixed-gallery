@@ -194,6 +194,71 @@
 	display: none !important;
 }
 
+/* Telegram source — QR + session UI */
+.hpv-mixed-gallery .mg-telegram {
+	min-height: 200px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.hpv-mixed-gallery .mg-tg-grid {
+	display: flex;
+	gap: 1.25rem;
+	align-items: center;
+	width: 100%;
+}
+.hpv-mixed-gallery .mg-tg-qr {
+	flex: 0 0 auto;
+	width: 180px;
+	height: 180px;
+	border: 1px solid var(--mg-border, #e2e8f0);
+	border-radius: 10px;
+	background: #fff;
+	padding: 6px;
+}
+.hpv-mixed-gallery .mg-tg-info {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+.hpv-mixed-gallery .mg-tg-title {
+	font-size: 13px;
+	font-weight: 600;
+	margin: 0 0 0.4rem;
+}
+.hpv-mixed-gallery .mg-tg-steps {
+	margin: 0 0 0.6rem 1.1rem;
+	padding: 0;
+	font-size: 12px;
+	color: var(--mg-text-sub);
+	line-height: 1.5;
+}
+.hpv-mixed-gallery .mg-tg-meta {
+	margin: 0.5rem 0 0;
+	font-size: 12px;
+	color: var(--mg-text-sub);
+}
+.hpv-mixed-gallery .mg-tg-status {
+	font-size: 13px;
+	color: var(--mg-text-sub);
+	margin: 0 0 0.75rem;
+}
+.hpv-mixed-gallery .mg-tg-error {
+	color: var(--mg-danger, #c0392b);
+}
+.hpv-mixed-gallery .mg-tg-center {
+	text-align: center;
+	padding: 1rem;
+}
+@media (max-width: 480px) {
+	.hpv-mixed-gallery .mg-tg-grid {
+		flex-direction: column;
+		text-align: center;
+	}
+	.hpv-mixed-gallery .mg-tg-steps {
+		text-align: left;
+	}
+}
+
 /* Uppy plugin */
 .hpv-mixed-gallery .mg-uppy {
 	min-height: 120px;
