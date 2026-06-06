@@ -252,7 +252,11 @@ class HpvMixedGallery {
 
 	addAsset(asset) {
 		if (this._isFull()) return null; // gallery capacity backstop
-		const stored = this._insertAsset(asset, true); // animate user-added cards
+		// newest-first + entrance animation for user-added cards
+		const stored = this._insertAsset(asset, {
+			animateIn: true,
+			prepend: true,
+		});
 		if (!stored) return null;
 		if (this.options.onAdd) this.options.onAdd(this, stored);
 		return stored.id;
@@ -317,7 +321,7 @@ class HpvMixedGallery {
 		rawItems.forEach((asset) => this._insertAsset(asset));
 	}
 
-	_insertAsset(asset, animateIn = false) {
+	_insertAsset(asset, { animateIn = false, prepend = false } = {}) {
 		if (!asset || !asset.name) return null;
 		const id = 'asset-' + ++this._seq;
 		const ext = (asset.ext || this._extOf(asset.name)).toUpperCase();
@@ -329,8 +333,15 @@ class HpvMixedGallery {
 		};
 		if (asset.url) stored.url = asset.url + ''; // optional preview source
 		this.items.set(id, stored);
-		this._grid.insertAdjacentHTML('beforeend', this._renderCard(stored));
-		if (animateIn) this._enterCardNode(this._grid.lastElementChild);
+		// newest-first: user-added cards go to the top; initial items keep order
+		this._grid.insertAdjacentHTML(
+			prepend ? 'afterbegin' : 'beforeend',
+			this._renderCard(stored),
+		);
+		const node = prepend
+			? this._grid.firstElementChild
+			: this._grid.lastElementChild;
+		if (animateIn) this._enterCardNode(node);
 		this._updateTotal();
 		return stored;
 	}

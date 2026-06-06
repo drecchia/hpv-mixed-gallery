@@ -370,7 +370,7 @@
 @keyframes mg-card-in {
 	from {
 		opacity: 0;
-		transform: scale(0.9) translateY(6px);
+		transform: scale(0.95) translateY(-10px); /* drops into the top slot */
 	}
 	to {
 		opacity: 1;
