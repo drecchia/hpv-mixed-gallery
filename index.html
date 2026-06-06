@@ -476,10 +476,12 @@
 			gallery.registerUploadPlugin(new HpvLocalUpload());
 			gallery.registerUploadPlugin(new HpvCameraCapture()); // real WebRTC
 			gallery.registerUploadPlugin(
-				// demo endpoint just echoes; for real use, point at your upload API
+				// demo endpoint just echoes the request (no hosted file) — so don't
+				// link cards to a URL. A real upload API returns the stored file URL.
 				new HpvXhrUpload({
 					label: 'Servidor',
 					endpoint: 'https://httpbin.org/post',
+					responseParser: () => ({}),
 				}),
 			);
 			gallery.registerUploadPlugin(

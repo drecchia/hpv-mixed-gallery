@@ -99,7 +99,21 @@ class HpvUppyUpload {
 		} else {
 			// local mode: add the chosen file straight to the gallery
 			this.uppy.on('file-added', (file) => {
-				if (file && file.data) g.addFiles([file.data]);
+				if (file && file.data) {
+					// Uppy's data is a File (browse/drop) but a nameless Blob
+					// for some sources (webcam/url); the core needs a name, so
+					// wrap it in a named File.
+					const named =
+						file.data instanceof File && file.data.name
+							? file.data
+							: new File([file.data], file.name || 'arquivo', {
+									type:
+										file.type ||
+										(file.data && file.data.type) ||
+										'',
+								});
+					g.addFiles([named]);
+				}
 				if (this.uppy) this.uppy.removeFile(file.id); // keep dashboard tidy
 			});
 		}
