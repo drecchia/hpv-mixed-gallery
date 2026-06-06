@@ -512,9 +512,19 @@
 			gallery.registerSource(new HpvUrlSource());
 			gallery.registerSource(new HpvUppySource()); // needs the Uppy bundle
 			// Telegram → WebSocket bridge (node-telegram2ws). Shows a QR; photos
-			// sent in Telegram stream in. Needs the bridge running (default
-			// ws://localhost:8081) — pass { url } to point elsewhere.
-			gallery.registerSource(new HpvTelegramSource());
+			// sent in Telegram stream in. Needs the bridge running — pass { url }
+			// to point at it (use wss:// when the page is served over HTTPS).
+			gallery.registerSource(
+				new HpvTelegramSource({
+					url: 'ws://i2w-bgy8pd1.cluster.vortus.solutions/i2w',
+					protocol: 'i2w', // server pushes {type:'qrcode'|'image'} via @i2w_bot
+					steps: [
+						'Abra o Telegram e procure o bot @i2w_bot',
+						'Escaneie o QR code com o app Telegram',
+						'Envie as fotos na conversa com o bot',
+					],
+				}),
+			);
 			gallery.registerSource(new HpvClipboardSource()); // paste images/links
 
 			// TARGETS decide where the bytes go. Default (no setTarget) keeps files
