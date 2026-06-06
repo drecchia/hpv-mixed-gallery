@@ -218,6 +218,12 @@
 .hpv-mixed-gallery .mini-view[data-action='item']:hover {
 	filter: brightness(0.95);
 }
+/* Visible keyboard focus for the focusable (role=button) preview/dropzone */
+.hpv-mixed-gallery .mini-view[data-action='item']:focus-visible,
+.hpv-mixed-gallery .photon-dropzone:focus-visible {
+	outline: 2px solid #3b82f6;
+	outline-offset: 2px;
+}
 .hpv-mixed-gallery .mg-img-view {
 	background-color: #cbd5e1;
 }
@@ -333,7 +339,8 @@
 
 /* Gallery at capacity (maxItems reached) — proactive, calm cues */
 .hpv-mixed-gallery.is-full .mg-counter {
-	color: #b45309; /* soft amber: you're at the ceiling */
+	/* !important to beat Bulma's `.has-text-grey` color (also !important) */
+	color: #b45309 !important; /* soft amber: you're at the ceiling */
 	font-weight: 600;
 }
 .hpv-mixed-gallery.is-full .photon-dropzone {

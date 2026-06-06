@@ -192,16 +192,19 @@ class HpvMixedGallery {
 		this._toggleText = this.container.querySelector(
 			'[data-role="toggle-text"]',
 		);
+		this._saveBtn = this.container.querySelector('[data-action="save"]');
 	}
 
 	_setupEventListeners() {
 		this._onClick = (e) => this._handleClick(e);
+		this._onKeydown = (e) => this._handleKeydown(e);
 		this._onFileChange = (e) => this._handleFileChange(e);
 		this._onDragOver = (e) => this._handleDragOver(e);
 		this._onDragLeave = (e) => this._handleDragLeave(e);
 		this._onDrop = (e) => this._handleDrop(e);
 
 		this.container.addEventListener('click', this._onClick);
+		this.container.addEventListener('keydown', this._onKeydown);
 		this.container.addEventListener('change', this._onFileChange);
 		this.container.addEventListener('dragover', this._onDragOver);
 		this.container.addEventListener('dragleave', this._onDragLeave);
@@ -302,6 +305,7 @@ class HpvMixedGallery {
 		if (this._errorTimeout) clearTimeout(this._errorTimeout);
 		this._revokeAllOwnedUrls();
 		this.container.removeEventListener('click', this._onClick);
+		this.container.removeEventListener('keydown', this._onKeydown);
 		this.container.removeEventListener('change', this._onFileChange);
 		this.container.removeEventListener('dragover', this._onDragOver);
 		this.container.removeEventListener('dragleave', this._onDragLeave);
@@ -362,14 +366,14 @@ class HpvMixedGallery {
 		const L = this.options.labels;
 		if (this.uploadMethod === 'camera') {
 			return `
-				<div class="photon-dropzone" data-action="camera">
+				<div class="photon-dropzone" data-action="camera" role="button" tabindex="0" aria-label="${this._escape(L.cameraTitle)}">
 					<span class="icon is-large mb-2 mg-cam-icon"><i class="fa-solid fa-camera fa-2x"></i></span>
 					<p class="is-size-7 has-text-weight-semibold">${L.cameraTitle}</p>
 					<p class="is-size-7 has-text-grey mt-1">${L.cameraHint}</p>
 				</div>`;
 		}
 		return `
-			<div class="photon-dropzone" data-action="pick" data-role="dropzone">
+			<div class="photon-dropzone" data-action="pick" data-role="dropzone" role="button" tabindex="0" aria-label="${this._escape(L.localTitle)}">
 				<span class="icon is-large mb-2 mg-up-icon"><i class="fa-solid fa-cloud-arrow-up fa-2x"></i></span>
 				<p class="is-size-7 has-text-weight-semibold">${L.localTitle}</p>
 				<p class="is-size-7 has-text-grey mt-1">${L.acceptHint}</p>
@@ -408,8 +412,9 @@ class HpvMixedGallery {
 	}
 
 	_renderPreview(a) {
-		// Every card's preview is clickable (data-action="item") — fires onItemClick.
-		const attrs = `data-action="item" data-id="${a.id}"`;
+		// Every card's preview is an activatable control (fires onItemClick) and
+		// is keyboard-focusable for a11y.
+		const attrs = `data-action="item" data-id="${a.id}" role="button" tabindex="0" aria-label="${this._escape(a.name)}"`;
 		if (this._isImage(a.ext)) {
 			// real thumbnail when the asset has a url, else a placeholder icon
 			const inner = a.url
@@ -483,6 +488,20 @@ class HpvMixedGallery {
 				this._handleSave();
 				break;
 		}
+	}
+
+	// Enter/Space activate the focusable non-button controls (dropzone, cards).
+	// Native <button>s (remove/save/tabs/toggle) handle keyboard themselves.
+	_handleKeydown(e) {
+		if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+		if (
+			!e.target.matches(
+				'[data-action="pick"],[data-action="camera"],[data-action="item"]',
+			)
+		)
+			return;
+		e.preventDefault();
+		this._handleClick(e);
 	}
 
 	_handleFileChange(e) {
@@ -692,6 +711,7 @@ class HpvMixedGallery {
 		const max = this.options.maxItems || 0;
 		this._counter.innerText = this.options.labels.counter(total, max);
 		this._root.classList.toggle('is-full', this._isFull());
+		if (this._saveBtn) this._saveBtn.disabled = total === 0; // nothing to save
 		if (total === 0) {
 			this._grid.style.display = 'none';
 			this._empty.style.display = 'flex';
