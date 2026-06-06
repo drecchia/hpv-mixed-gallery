@@ -214,6 +214,7 @@
 		<script src="src/js/plugins/camera-capture.js"></script>
 		<script src="src/js/plugins/xhr-upload.js"></script>
 		<script src="src/js/plugins/uppy-upload.js"></script>
+		<script src="src/js/plugins/s3-upload.js"></script>
 		<script>
 			// Demo-only: the gallery fires onItemClick for ANY card; the host
 			// decides what to do based on the asset's type/extension. Images open
@@ -485,6 +486,24 @@
 				// local mode adds chosen files straight to the gallery (no server)
 				new HpvUppyUpload({ mode: 'local' }),
 			);
+
+			// S3 signed upload — needs YOUR backend to sign + a bucket, so it's not
+			// registered in this static demo. Wire it like this:
+			//
+			// gallery.registerUploadPlugin(
+			//   new HpvS3Upload({
+			//     label: 'Amazon S3',
+			//     // ask your backend for a presigned URL (PUT) or policy (POST):
+			//     sign: async (file) => {
+			//       const r = await fetch('/api/s3-sign', {
+			//         method: 'POST',
+			//         headers: { 'Content-Type': 'application/json' },
+			//         body: JSON.stringify({ name: file.name, type: file.type, size: file.size }),
+			//       });
+			//       return r.json(); // { method:'PUT', url, publicUrl }  or  { method:'POST', url, fields }
+			//     },
+			//   }),
+			// );
 		</script>
 	</body>
 </html>

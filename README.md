@@ -95,6 +95,26 @@ construction; the first registered is the active tab. Four ship in `src/js/plugi
 - **`HpvUppyUpload`** (`uppy-upload.js`) — inline **Uppy Dashboard** (requires the
   Uppy bundle + CSS on the page). `mode: 'local'` adds chosen files straight to the
   gallery (no server); `mode: 'xhr'` uploads via Uppy's XHRUpload to `endpoint`.
+- **`HpvS3Upload`** (`s3-upload.js`) — **direct-to-S3** signed upload. The browser
+  holds no AWS keys: per file it gets signed params from your backend, then uploads
+  straight to S3 (presigned **PUT** of raw bytes, or presigned **POST** with policy
+  `fields`), and adds the asset with its public URL. Options: `id`, `label`, `title`,
+  `hint`, `accept`, `multiple`, `sign(file)` **or** `signEndpoint` (+ `signMethod`,
+  `signHeaders`), `method`, `fieldName`, `headers`, `withCredentials`, `timeout`,
+  `publicUrl(file, signed)`, and callbacks `onUploadProgress/onUploadSuccess/onUploadError/onSignError`.
+
+```js
+// S3 example — sign on your backend, upload direct from the browser
+gallery.registerUploadPlugin(new HpvS3Upload({
+  sign: async (file) => {
+    const r = await fetch('/api/s3-sign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: file.name, type: file.type, size: file.size }),
+    });
+    return r.json(); // { method:'PUT', url, publicUrl } | { method:'POST', url, fields }
+  },
+}));
+```
 
 The contract supports optional `onShow(gallery)` / `onHide(gallery)` lifecycle
 hooks (called when a tab becomes active / inactive and on open/close) — the camera

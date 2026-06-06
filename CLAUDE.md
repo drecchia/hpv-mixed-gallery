@@ -15,6 +15,7 @@ There is **no build system, no package.json, no test runner, no linter, no modul
 - `src/js/plugins/camera-capture.js` — `HpvCameraCapture` (real WebRTC capture; needs HTTPS/localhost).
 - `src/js/plugins/xhr-upload.js` — `HpvXhrUpload` (multipart POST to a server endpoint).
 - `src/js/plugins/uppy-upload.js` — `HpvUppyUpload` (inline Uppy Dashboard; needs the Uppy bundle).
+- `src/js/plugins/s3-upload.js` — `HpvS3Upload` (direct-to-S3 signed upload; needs a backend `sign`/`signEndpoint`).
 - `src/css/hpv-mixed-gallery.css` — all styles, every rule scoped under `.hpv-mixed-gallery`.
 - `index.html` — the runnable demo (constructs the gallery, registers both plugins).
 - `README.md` — public options/API/plugin reference; keep it in sync when changing options.
