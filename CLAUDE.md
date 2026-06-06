@@ -55,6 +55,8 @@ Capacity is surfaced proactively: footer counter shows `n de max` and the root g
 
 **Delete is confirm-in-place, single-armed.** `remove` arms the card (`.is-confirming` swaps trash → ✓/✕), only one card armed at a time, auto-cancels after ~4s (`_armRemove`/`_disarmRemove`). `confirmRemove: false` deletes immediately.
 
+**Read-only mode (`readOnly` option + `setReadOnly(on)`).** Adds `.is-readonly` on the root, which CSS uses to hide every mutation affordance (upload toggle + panel, per-card delete, save button, empty-state add button). Defense-in-depth: `_handleClick` blocks all actions except `item`, and `openUpload()` no-ops. Item preview and the programmatic API (`addAsset`/`removeAsset`/`ingest`/…) stay functional — only the end-user UI is locked.
+
 **Drag-drop targets the whole open panel** (in the local plugin's `_isDropTarget`), not just the dashed box — a near-miss otherwise lets the browser open the dropped file and replace the app.
 
 ## Conventions (match these)

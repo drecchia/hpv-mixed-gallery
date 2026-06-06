@@ -47,6 +47,7 @@ gallery (grid, delete, save, preview hooks) still works.
 | `maxItems`      | number   | `0`     | Max assets the gallery can hold; `0` = unlimited.     |
 | `animate`       | boolean  | `true`  | Micro-interactions; set `false` to disable. |
 | `confirmRemove` | boolean  | `true`  | Inline confirm before a card is deleted. |
+| `readOnly`      | boolean  | `false` | View-only: hide upload/delete/save UI; item preview still works. Toggle later with `setReadOnly()`. |
 | `labels`        | object   | pt-BR   | Shared copy — see below. Merged one level deep, so override individual keys. (Upload-method strings live in the plugins.) |
 | `onAdd`         | function | `null`  | `fn(component, asset)`                   |
 | `onRemove`      | function | `null`  | `fn(component, id, asset)`              |
@@ -79,8 +80,14 @@ new HpvMixedGallery('id', {
 `getImages()` (image-type only) · `getCount()` · `isFull()` · `clear()` ·
 `showError(msg)` / `clearError()` · `openUpload()` / `closeUpload()` / `toggleUpload()` ·
 `registerSource(source)` / `unregisterSource(source)` · `setTarget(target)` ·
-`setMethod(sourceId)` · `destroy()`
+`setMethod(sourceId)` · `setReadOnly(bool)` · `destroy()`
 (`registerUploadPlugin` / `unregisterUploadPlugin` remain as deprecated aliases.)
+
+**Read-only mode** — for viewers without edit access. `new HpvMixedGallery(id, { readOnly: true })`
+or `gallery.setReadOnly(true)` later. It hides the upload toggle + panel, per-card
+delete, the save button, and the empty-state add button, and blocks UI-driven
+mutations; item click (preview/download) still works, and the programmatic API
+(`addAsset`/`removeAsset`/`ingest`/…) is unaffected.
 
 ## Sources & Targets
 

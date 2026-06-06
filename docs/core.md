@@ -50,6 +50,7 @@ the grid is then updated incrementally (insert/remove), never fully re-rendered.
 | `maxItems` | number | `0` | Max assets the gallery may hold. `0` = unlimited. |
 | `animate` | boolean | `true` | Master switch for micro-interactions. See [Animations](#animations). |
 | `confirmRemove` | boolean | `true` | Require an inline confirm before a card is deleted. |
+| `readOnly` | boolean | `false` | View-only mode — hide all mutation UI; item preview still works. See [Read-only mode](#read-only-mode). Toggle later with `setReadOnly()`. |
 | `labels` | object | pt-BR | Shared user-facing copy. See [`labels`](#labels). Upload-method strings live in the plugins, not here. |
 | `onAdd` | function | `null` | `fn(gallery, asset)` after an asset is added. |
 | `onRemove` | function | `null` | `fn(gallery, id, asset)` after an asset is removed. |
@@ -121,6 +122,7 @@ Image-type assets (`jpg/jpeg/png/gif/webp`) with a `url` render a real
 | `unregisterSource(source)` | Remove a source (calls its `destroy()`); re-points the active tab if needed. |
 | `setTarget(target)` | Set the storage target (`{ store(acq, ctx) }`); `null` restores the built-in local store. |
 | `setMethod(id)` | Switch the active source by `id` (calls `onHide`/`onShow`). |
+| `setReadOnly(on)` | Toggle [view-only mode](#read-only-mode) after creation. |
 | `openUpload()` / `closeUpload()` / `toggleUpload()` | Show/hide the upload panel (fires the active source's `onShow`/`onHide`). |
 | `registerUploadPlugin` / `unregisterUploadPlugin` | Deprecated aliases of `registerSource`/`unregisterSource`. |
 
@@ -215,6 +217,21 @@ Each card's trash button is **confirm-in-place**: the first click arms the card
 card is armed at a time (arming another disarms the first), and it auto-cancels
 after ~4s. The ✓ confirms (animated removal), ✕ cancels. Set
 `confirmRemove: false` to delete on the first click.
+
+## Read-only mode
+
+For viewers without edit access. Set `readOnly: true` at construction or call
+`setReadOnly(true)` later (and `setReadOnly(false)` to restore).
+
+When on, the root gets `.is-readonly`, which hides every mutation affordance: the
+**Adicionar** toggle + the whole upload panel, per-card **delete**, the **save**
+button, and the empty-state add button. As defense-in-depth, `_handleClick` also
+blocks every action except `item`, and `openUpload()` is a no-op (so even
+programmatic/keyboard paths can't mutate via the UI).
+
+What still works: **item click → preview/download** (a view action), and the
+**programmatic API** (`addAsset`, `removeAsset`, `ingest`, `clear`, …) — a host
+can populate or manage a read-only gallery in code; only the end-user UI is locked.
 
 ## Item click (preview/download hook)
 
