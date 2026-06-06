@@ -147,6 +147,7 @@ g.setTarget(new HpvConsoleTarget());
 | [`HpvUrlSource`](sources.md#hpvurlsource) — paste a URL | [`HpvS3Target`](targets.md#hpvs3target) — direct-to-S3 signed |
 | [`HpvUppySource`](sources.md#hpvuppysource) — Uppy Dashboard | |
 | [`HpvTelegramSource`](sources.md#hpvtelegramsource) — Telegram→WS (QR) | |
+| [`HpvClipboardSource`](sources.md#hpvclipboardsource) — paste image/URL | |
 
 Full options in [sources.md](sources.md) and [targets.md](targets.md).
 

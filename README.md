@@ -113,6 +113,10 @@ source composes with any target. Full guide: [docs/plugins/README.md](docs/plugi
   stream into the gallery. Options: `id`, `label`, `url` (default
   `ws://localhost:8081`), `locale`, `clientMeta`, `pingInterval`, plus UI copy.
   Needs the bridge running.
+- **`HpvClipboardSource`** (`clipboard.js`) — **paste** an image with Ctrl/Cmd+V
+  or a button (async Clipboard API); a copied http(s) URL becomes a reference.
+  Options: `id`, `label`, `title`, `hint`, `pickLabel`, `emptyText`, `deniedText`.
+  Zero-dependency.
 
 **Targets** (`src/js/targets/`, set one with `setTarget`):
 

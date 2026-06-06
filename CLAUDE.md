@@ -11,7 +11,7 @@ There is **no build system, no package.json, no test runner, no linter, no modul
 ## Files
 
 - `src/js/hpv-mixed-gallery.js` — the core (`HpvMixedGallery` class + `HpvMixedGalleryError`).
-- `src/js/sources/` — upload sources (the tabs): `local.js` `HpvLocalSource` (picker + drag-drop), `camera.js` `HpvCameraSource` (real WebRTC; needs HTTPS/localhost), `url.js` `HpvUrlSource` (paste a remote URL), `uppy.js` `HpvUppySource` (inline Uppy Dashboard; needs the Uppy bundle), `telegram.js` `HpvTelegramSource` (Telegram bot → WebSocket bridge `node-telegram2ws`; shows a QR, photos stream in via WS; needs the bridge running).
+- `src/js/sources/` — upload sources (the tabs): `local.js` `HpvLocalSource` (picker + drag-drop), `camera.js` `HpvCameraSource` (real WebRTC; needs HTTPS/localhost), `url.js` `HpvUrlSource` (paste a remote URL), `uppy.js` `HpvUppySource` (inline Uppy Dashboard; needs the Uppy bundle), `telegram.js` `HpvTelegramSource` (Telegram bot → WebSocket bridge `node-telegram2ws`; shows a QR, photos stream in via WS; needs the bridge running), `clipboard.js` `HpvClipboardSource` (paste image/URL via Ctrl+V or the async Clipboard API).
 - `src/js/targets/` — storage targets: `xhr.js` `HpvXhrTarget` (multipart POST), `s3.js` `HpvS3Target` (direct-to-S3 signed; needs a backend `sign`/`signEndpoint`). The built-in **local** store (object URL / url-by-reference) is the default when no target is set — no class.
 - `src/css/hpv-mixed-gallery.css` — all styles, every rule scoped under `.hpv-mixed-gallery`.
 - `index.html` — the runnable demo (registers the sources + a destination picker that calls `setTarget`).

@@ -15,7 +15,7 @@ host page provides **Bulma 1.0.x** (layout/buttons) and **FontAwesome 6** (icons
 |------|----------|
 | **Core** — the `HpvMixedGallery` class: options, public API, asset model, ingest pipeline, limits, animations, delete-confirm, events, CSS, source/target registry | [core.md](core.md) |
 | **Sources & Targets** — the upload system, both contracts, lifecycle hooks, how to write one | [plugins/README.md](plugins/README.md) |
-| **Sources** — the shipped tabs (local, camera, URL, Uppy, Telegram) | [plugins/sources.md](plugins/sources.md) |
+| **Sources** — the shipped tabs (local, camera, URL, Uppy, Telegram, clipboard) | [plugins/sources.md](plugins/sources.md) |
 | **Targets** — the storage backends (built-in local, XHR, S3) | [plugins/targets.md](plugins/targets.md) |
 | **Proposal** — the source/target design rationale (implemented) | [proposals/source-target.md](proposals/source-target.md) |
 

@@ -138,3 +138,27 @@ the WS server). Point `url` at it; cross-origin needs `wss://` from an HTTPS pag
 For a local demo without a real bot, run the bundled zero-dep mock —
 `node mock/telegram2ws-mock.js` — and use its `/sim` page to push photos (see
 [mock/README.md](../../mock/README.md)).
+
+## HpvClipboardSource
+
+`src/js/sources/clipboard.js` — paste from the clipboard. Two ways in: press
+**Ctrl/Cmd+V** while the tab is open (a `paste` event), or click the button
+(async Clipboard API, needs a user gesture + permission). Images become files; a
+copied **http(s) URL** becomes a `{ url }` acquisition. Zero-dependency.
+
+```js
+g.registerSource(new HpvClipboardSource({ label: 'Colar' }));
+```
+
+| Option | Default | Notes |
+|--------|---------|-------|
+| `id` | `'clipboard'` | tab id |
+| `label` | `'Colar'` | tab text |
+| `title` / `hint` / `pickLabel` | pt-BR | prompt + button copy |
+| `emptyText` | "Nenhuma imagem ou link…" | clipboard had nothing usable |
+| `deniedText` | "Sem acesso à área de transferência — use Ctrl+V." | permission denied / no async API |
+
+The paste listener is global but **only acts while this tab is the active, open
+one** (so it never hijacks pasting elsewhere). The async button path requires a
+secure context + clipboard-read permission; if unavailable it points the user to
+Ctrl+V. Composes with any target (paste → S3, etc.).
