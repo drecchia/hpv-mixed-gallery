@@ -1,13 +1,10 @@
-// hpv-mixed-gallery plugin — Camera capture (real WebRTC).
-// Live <video> preview inside the active tab; capture draws a frame to a canvas,
-// encodes a JPEG blob, and feeds it to the core via gallery.addFiles([file]).
-// Stream starts on onShow (tab active + panel open) and stops on onHide/destroy,
-// so the camera is released when not in use.
-//
-// Note: navigator.mediaDevices.getUserMedia requires a secure context
-// (HTTPS or http://localhost) — it does NOT work from file://.
+// hpv-mixed-gallery source — camera capture (real WebRTC).
+// Live <video> preview; capture draws a frame to a canvas, encodes a JPEG blob,
+// wraps it in a File, and hands it to gallery.addFiles (→ active target).
+// Stream starts on onShow and stops on onHide/destroy (camera released when
+// not in use). Requires a secure context (HTTPS or http://localhost).
 
-class HpvCameraCapture {
+class HpvCameraSource {
 	constructor(options = {}) {
 		this.gallery = null;
 		this.id = options.id || 'camera';
@@ -16,9 +13,9 @@ class HpvCameraCapture {
 			idleText: options.idleText || 'Iniciando câmera…',
 			captureLabel: options.captureLabel || 'Capturar',
 			flipLabel: options.flipLabel || 'Trocar câmera',
-			quality: options.quality || 0.85, // JPEG quality 0–1
-			maxWidth: options.maxWidth || 1280, // downscale captures wider than this
-			facingMode: options.facingMode || 'environment', // 'environment' | 'user'
+			quality: options.quality || 0.85,
+			maxWidth: options.maxWidth || 1280,
+			facingMode: options.facingMode || 'environment',
 			fileName: options.fileName || ((ts) => `camera-${ts}.jpg`),
 			unsupportedText:
 				options.unsupportedText ||
@@ -185,7 +182,7 @@ class HpvCameraCapture {
 				if (!blob) return;
 				const name = this.options.fileName(Date.now());
 				const file = new File([blob], name, { type: 'image/jpeg' });
-				g.addFiles([file]); // core handles limits + object URL + thumbnail
+				g.addFiles([file]); // → active target (local/server/S3)
 			},
 			'image/jpeg',
 			this.options.quality,

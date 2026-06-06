@@ -1,11 +1,9 @@
-// hpv-mixed-gallery plugin — import a file from a pasted remote URL.
-// A URL field + Add button; on submit the asset is added referencing the URL.
-//   mode: 'reference' (default) — store the URL as-is (no fetch; works for
-//                                 cross-origin images/PDFs that allow hotlinking).
-//   mode: 'fetch'              — fetch the URL → blob → File → addFiles (subject
-//                                to CORS; goes through the core's size/object-URL).
+// hpv-mixed-gallery source — paste a remote URL.
+// Emits a { url, name, ext } acquisition; the active target decides what to do
+// with it (the local target stores the URL by reference; server/S3 targets
+// fetch the bytes first).
 
-class HpvUrlImport {
+class HpvUrlSource {
 	constructor(options = {}) {
 		this.gallery = null;
 		this.id = options.id || 'url';
@@ -17,11 +15,8 @@ class HpvUrlImport {
 				options.hint ||
 				'Cole o endereço de uma imagem ou documento e clique em Adicionar',
 			addLabel: options.addLabel || 'Adicionar',
-			mode: options.mode || 'reference', // 'reference' | 'fetch'
 			invalidText:
 				options.invalidText || 'Informe uma URL http(s) válida.',
-			fetchErrorText:
-				options.fetchErrorText || 'Não foi possível baixar a URL.',
 			validate: options.validate || ((url) => /^https?:\/\//i.test(url)),
 			nameFrom: options.nameFrom || null, // (url) => name
 		};
@@ -29,9 +24,8 @@ class HpvUrlImport {
 
 	init(gallery) {
 		this.gallery = gallery;
-		const c = gallery.container;
 		this._onSubmit = (e) => this._handleSubmit(e);
-		c.addEventListener('submit', this._onSubmit);
+		gallery.container.addEventListener('submit', this._onSubmit);
 	}
 
 	renderArea(gallery) {
@@ -75,7 +69,7 @@ class HpvUrlImport {
 		input.value = '';
 	}
 
-	async _add(url) {
+	_add(url) {
 		const g = this.gallery;
 		const o = this.options;
 		if (!o.validate(url)) {
@@ -86,29 +80,16 @@ class HpvUrlImport {
 			g.showError(g.options.labels.galleryFull(g.options.maxItems));
 			return;
 		}
-		g.clearError();
 		const name = this._name(url);
-
-		if (o.mode === 'fetch') {
-			try {
-				const res = await fetch(url);
-				if (!res.ok) throw new Error('HTTP ' + res.status);
-				const blob = await res.blob();
-				g.addFiles([new File([blob], name, { type: blob.type })]);
-			} catch (err) {
-				g.showError(o.fetchErrorText);
-			}
-			return;
-		}
-		// reference mode: store the remote URL directly
-		g.addAsset({ name, ext: this._ext(name), url });
+		g.ingest([{ url, name, ext: this._ext(name) }]);
 	}
 
 	_name(url) {
 		if (this.options.nameFrom) return this.options.nameFrom(url);
 		try {
-			const path = new URL(url).pathname;
-			const last = decodeURIComponent(path.split('/').pop() || '');
+			const last = decodeURIComponent(
+				new URL(url).pathname.split('/').pop() || '',
+			);
 			return last || 'arquivo';
 		} catch (e) {
 			return 'arquivo';

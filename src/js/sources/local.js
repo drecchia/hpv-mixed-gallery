@@ -1,8 +1,8 @@
-// hpv-mixed-gallery plugin — Local file upload (picker + drag & drop).
-// Registered via gallery.registerUploadPlugin(new HpvLocalUpload()).
-// Contract: id, options.label, init(gallery), renderArea(gallery), destroy().
+// hpv-mixed-gallery source — local file (picker + drag & drop).
+// Acquires File objects and hands them to gallery.addFiles (→ ingest → the
+// active target). What happens to the bytes is the target's job.
 
-class HpvLocalUpload {
+class HpvLocalSource {
 	constructor(options = {}) {
 		this.gallery = null;
 		this.id = options.id || 'local';
@@ -14,7 +14,7 @@ class HpvLocalUpload {
 			hint:
 				options.hint ||
 				'Formatos aceitos: PDF, XLSX, JPG, PNG até 15MB',
-			accept: options.accept || '', // native <input accept>
+			accept: options.accept || '',
 			multiple: options.multiple !== false,
 		};
 	}
@@ -22,7 +22,6 @@ class HpvLocalUpload {
 	init(gallery) {
 		this.gallery = gallery;
 		const c = gallery.container;
-		// own delegated listeners on the gallery container (cleaned up in destroy)
 		this._onClick = (e) => this._handleClick(e);
 		this._onChange = (e) => this._handleChange(e);
 		this._onDragOver = (e) => this._handleDragOver(e);
@@ -66,13 +65,11 @@ class HpvLocalUpload {
 			`[data-role="dropzone"][data-plugin="${this.id}"]`,
 		);
 	}
-
 	_input() {
 		return this.gallery.container.querySelector(
 			`[data-role="file-input"][data-plugin="${this.id}"]`,
 		);
 	}
-
 	_panel() {
 		return this.gallery.container.querySelector(
 			'[data-role="upload-panel"]',
@@ -107,9 +104,6 @@ class HpvLocalUpload {
 		e.target.value = ''; // allow re-selecting the same file
 	}
 
-	// The whole open panel is the drop target while this plugin is active —
-	// dropping only on the small dashed box is too easy to miss, and a near-miss
-	// lets the browser hijack the file (opens it, replacing the app).
 	_isDropTarget(e) {
 		const g = this.gallery;
 		const panel = this._panel();
@@ -120,14 +114,12 @@ class HpvLocalUpload {
 			panel.contains(e.target)
 		);
 	}
-
 	_handleDragOver(e) {
 		if (!this._isDropTarget(e)) return;
 		e.preventDefault();
 		const dz = this._dropzone();
 		if (dz) dz.classList.add('is-dragover');
 	}
-
 	_handleDragLeave(e) {
 		const panel = this._panel();
 		if (panel && !panel.contains(e.relatedTarget)) {
@@ -135,7 +127,6 @@ class HpvLocalUpload {
 			if (dz) dz.classList.remove('is-dragover');
 		}
 	}
-
 	_handleDrop(e) {
 		if (!this._isDropTarget(e)) return;
 		e.preventDefault();
