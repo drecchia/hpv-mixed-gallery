@@ -5,6 +5,9 @@ upload panel with **pluggable upload methods** (local file + camera ship as
 plugins, registered like hpv-mini-gallery), a type-aware card grid, an empty
 state, and a footer counter + save action.
 
+**Full documentation:** [`docs/`](docs/README.md) — split into
+[core](docs/core.md) and [plugins](docs/plugins/README.md) (one doc per plugin).
+
 ## Dependencies
 
 Host page must load **Bulma 1.0.x** (layout/buttons) and **FontAwesome 6** (icons).
@@ -95,6 +98,12 @@ construction; the first registered is the active tab. Four ship in `src/js/plugi
 - **`HpvUppyUpload`** (`uppy-upload.js`) — inline **Uppy Dashboard** (requires the
   Uppy bundle + CSS on the page). `mode: 'local'` adds chosen files straight to the
   gallery (no server); `mode: 'xhr'` uploads via Uppy's XHRUpload to `endpoint`.
+- **`HpvUrlImport`** (`url-import.js`) — paste a remote file URL. A URL field +
+  Add button adds an asset referencing the URL. Options: `id`, `label`,
+  `placeholder`, `hint`, `addLabel`, `mode` (`'reference'` stores the URL as-is —
+  default; `'fetch'` downloads → blob → `addFiles`, subject to CORS), `validate`,
+  `nameFrom`. Type is inferred from the URL's extension (extensionless URLs are
+  treated as generic files).
 - **`HpvS3Upload`** (`s3-upload.js`) — **direct-to-S3** signed upload. The browser
   holds no AWS keys: per file it gets signed params from your backend, then uploads
   straight to S3 (presigned **PUT** of raw bytes, or presigned **POST** with policy
