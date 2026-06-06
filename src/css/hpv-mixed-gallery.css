@@ -177,8 +177,8 @@
 	margin-top: 0.75rem;
 }
 
-/* XHR plugin — upload progress line */
-.hpv-mixed-gallery .mg-xhr-progress {
+/* Upload progress line (surfaced by targets via ctx.progress) */
+.hpv-mixed-gallery .mg-upload-progress {
 	margin: 0.75rem 0 0;
 	font-size: 12px;
 	font-weight: 500;

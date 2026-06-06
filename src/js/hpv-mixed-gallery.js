@@ -19,6 +19,7 @@ class HpvMixedGallery {
 			maxItems: 0, // max assets the gallery can hold (0 = unlimited)
 			animate: true, // micro-interactions (panel reveal, icon morph, button feedback)
 			confirmRemove: true, // require an inline confirm before deleting a card
+			target: null, // storage Target { store(acq, ctx) }; null = built-in local store
 			// --- all user-facing copy (override any single string; pt-BR defaults).
 			//     Upload-method strings (tab label, dropzone copy) live in the
 			//     registered upload plugins, not here.
@@ -74,8 +75,9 @@ class HpvMixedGallery {
 		// state
 		this.items = new Map(); // id(string) -> asset
 		this.isUploadOpen = false;
-		this.uploadMethod = null; // active upload-plugin id (set on register)
-		this._uploadPlugins = []; // registered upload-method plugins
+		this.uploadMethod = null; // active source id (set on register)
+		this._sources = []; // registered upload sources (the tabs)
+		this._target = this.options.target || null; // active storage target
 		this._seq = 0;
 		this._confirmingId = null; // card currently armed for delete (one at a time)
 		this._confirmTimeout = null;
@@ -122,6 +124,7 @@ class HpvMixedGallery {
 						<div class="buttons has-addons mb-0" data-role="tabs"></div>
 					</div>
 					<div data-role="upload-area"></div>
+					<p class="mg-upload-progress" data-role="upload-progress" hidden></p>
 					<p class="mg-upload-error" data-role="upload-error" hidden></p>
 				</div>
 
@@ -157,6 +160,9 @@ class HpvMixedGallery {
 		);
 		this._uploadError = this.container.querySelector(
 			'[data-role="upload-error"]',
+		);
+		this._uploadProgress = this.container.querySelector(
+			'[data-role="upload-progress"]',
 		);
 		this._grid = this.container.querySelector('[data-role="grid"]');
 		this._empty = this.container.querySelector('[data-role="empty"]');
@@ -204,9 +210,7 @@ class HpvMixedGallery {
 	}
 
 	_activePlugin() {
-		return (
-			this._uploadPlugins.find((p) => p.id === this.uploadMethod) || null
-		);
+		return this._sources.find((p) => p.id === this.uploadMethod) || null;
 	}
 	_notifyShow() {
 		const p = this._activePlugin();
@@ -217,33 +221,50 @@ class HpvMixedGallery {
 		if (p && typeof p.onHide === 'function') p.onHide(this);
 	}
 
-	// Register an upload-method plugin (local file, camera, …). Mirrors
-	// hpv-mini-gallery: the plugin gets init(gallery), provides renderArea()
-	// for the active tab, and tears down in destroy().
-	registerUploadPlugin(plugin) {
-		if (!plugin || this._uploadPlugins.includes(plugin)) return;
-		this._uploadPlugins.push(plugin);
-		if (typeof plugin.init === 'function') plugin.init(this);
-		if (!this.uploadMethod) this.uploadMethod = plugin.id; // first = active
+	// Register an upload SOURCE (a tab): { id, options.label, init(gallery),
+	// renderArea(gallery), destroy(), onShow?, onHide? }. First registered is
+	// the active tab. A source acquires files/urls and calls gallery.ingest().
+	registerSource(source) {
+		if (!source || this._sources.includes(source)) return;
+		this._sources.push(source);
+		if (typeof source.init === 'function') source.init(this);
+		if (!this.uploadMethod) this.uploadMethod = source.id; // first = active
 		this._renderTabs();
 		this._renderActiveArea();
+		if (this.isUploadOpen && this.uploadMethod === source.id)
+			this._notifyShow();
 	}
 
-	unregisterUploadPlugin(plugin) {
-		const i = this._uploadPlugins.indexOf(plugin);
+	unregisterSource(source) {
+		const i = this._sources.indexOf(source);
 		if (i < 0) return;
-		if (typeof plugin.destroy === 'function') plugin.destroy();
-		this._uploadPlugins.splice(i, 1);
-		if (this.uploadMethod === plugin.id)
-			this.uploadMethod = this._uploadPlugins.length
-				? this._uploadPlugins[0].id
+		if (typeof source.destroy === 'function') source.destroy();
+		this._sources.splice(i, 1);
+		if (this.uploadMethod === source.id)
+			this.uploadMethod = this._sources.length
+				? this._sources[0].id
 				: null;
 		this._renderTabs();
 		this._renderActiveArea();
 	}
 
+	// Set the storage target ({ store(acquisition, ctx) => Promise<asset|null> }).
+	// null restores the built-in local store (object URL for files, ref for urls).
+	setTarget(target) {
+		this._target = target || null;
+	}
+
+	// Deprecated aliases — a combo "upload plugin" is just a source that does its
+	// own storage (calls addFiles/addAsset directly).
+	registerUploadPlugin(plugin) {
+		this.registerSource(plugin);
+	}
+	unregisterUploadPlugin(plugin) {
+		this.unregisterSource(plugin);
+	}
+
 	setMethod(id) {
-		if (!this._uploadPlugins.some((p) => p.id === id)) return;
+		if (!this._sources.some((p) => p.id === id)) return;
 		if (id === this.uploadMethod) return;
 		this._notifyHide(); // stop the outgoing plugin (e.g. camera stream)
 		this.uploadMethod = id;
@@ -315,10 +336,10 @@ class HpvMixedGallery {
 		if (this._confirmTimeout) clearTimeout(this._confirmTimeout);
 		if (this._errorTimeout) clearTimeout(this._errorTimeout);
 		this._revokeAllOwnedUrls();
-		this._uploadPlugins.forEach((p) => {
+		this._sources.forEach((p) => {
 			if (typeof p.destroy === 'function') p.destroy();
 		});
-		this._uploadPlugins = [];
+		this._sources = [];
 		this.container.removeEventListener('click', this._onClick);
 		this.container.removeEventListener('keydown', this._onKeydown);
 		this.container.innerHTML = '';
@@ -375,7 +396,7 @@ class HpvMixedGallery {
 
 	// Segmented tabs, one per registered upload plugin.
 	_renderTabs() {
-		this._tabs.innerHTML = this._uploadPlugins
+		this._tabs.innerHTML = this._sources
 			.map((p) => {
 				const active = p.id === this.uploadMethod;
 				const label = this._escape(
@@ -390,7 +411,7 @@ class HpvMixedGallery {
 
 	// Render the active plugin's upload UI into the area.
 	_renderActiveArea() {
-		const p = this._uploadPlugins.find((x) => x.id === this.uploadMethod);
+		const p = this._sources.find((x) => x.id === this.uploadMethod);
 		this._uploadArea.innerHTML = p ? p.renderArea(this) : '';
 	}
 
@@ -507,17 +528,48 @@ class HpvMixedGallery {
 		if (this.options.onSave) this.options.onSave(this, this.getAssets());
 	}
 
-	// Ingest a batch of File objects (called by upload plugins): fill up to the
-	// gallery limit, report overflow, enforce per-file size, create object URLs.
-	addFiles(fileList) {
-		const files = Array.from(fileList);
+	// Ingest acquisitions — `{ file }` or `{ url, name?, ext? }`. The single
+	// chokepoint: enforces capacity + per-file size, routes each through the
+	// active target's store() (or the built-in local store), then adds the asset.
+	async ingest(acquisitions) {
+		const list = Array.from(acquisitions || []);
+		const ctx = this._targetCtx();
 		let rejectedForSpace = 0;
-		for (const file of files) {
+		for (const acq of list) {
+			if (!acq) continue;
 			if (this._isFull()) {
 				rejectedForSpace++;
 				continue;
 			}
-			this._addFromFile(file);
+			if (
+				acq.file &&
+				this.options.maxSizeMB &&
+				acq.file.size > this.options.maxSizeMB * 1024 * 1024
+			) {
+				this._showUploadError(
+					this.options.labels.tooLarge(
+						acq.file.name,
+						this.options.maxSizeMB,
+						this._formatSize(acq.file.size),
+					),
+				);
+				if (this.options.onReject)
+					this.options.onReject(this, acq.file, 'too-large');
+				continue;
+			}
+			this._clearUploadError();
+			try {
+				const store = this._target
+					? this._target.store.bind(this._target)
+					: this._localStore.bind(this);
+				const asset = await store(acq, ctx);
+				if (asset) this.addAsset(asset);
+			} catch (err) {
+				this._showUploadError(
+					(err && err.message) || 'Falha no upload.',
+				);
+				this.debug('error', err);
+			}
 		}
 		if (rejectedForSpace > 0) {
 			this._showUploadError(
@@ -527,6 +579,12 @@ class HpvMixedGallery {
 				),
 			);
 		}
+		this._setProgress('');
+	}
+
+	// Convenience for sources that hold raw File objects.
+	addFiles(fileList) {
+		this.ingest(Array.from(fileList).map((file) => ({ file })));
 	}
 
 	_isFull() {
@@ -534,33 +592,42 @@ class HpvMixedGallery {
 		return max > 0 && this.items.size >= max;
 	}
 
-	_addFromFile(file) {
-		const limit = this.options.maxSizeMB;
-		if (limit && file.size > limit * 1024 * 1024) {
-			this._showUploadError(
-				this.options.labels.tooLarge(
-					file.name,
-					limit,
-					this._formatSize(file.size),
-				),
-			);
-			if (this.options.onReject)
-				this.options.onReject(this, file, 'too-large');
-			return;
-		}
-		this._clearUploadError();
-		const asset = {
-			name: file.name,
-			size: this._formatSize(file.size),
-			ext: this._extOf(file.name),
+	// Context handed to a target's store(): object URLs created via ctx.objectUrl
+	// are tracked and revoked by the core; ctx.progress surfaces in the panel.
+	_targetCtx() {
+		return {
+			gallery: this,
+			options: this.options,
+			labels: this.options.labels,
+			objectUrl: (blob) => {
+				const u = URL.createObjectURL(blob);
+				this._objectUrls.add(u);
+				return u;
+			},
+			progress: (msg) => this._setProgress(msg),
 		};
-		// Every uploaded file gets an object URL: preview for images/PDF,
-		// download for the rest — all reachable via onItemClick.
-		const createdUrl = URL.createObjectURL(file);
-		asset.url = createdUrl;
-		const id = this.addAsset(asset);
-		if (id) this._objectUrls.add(createdUrl);
-		else URL.revokeObjectURL(createdUrl); // rejected (e.g. full) — don't leak
+	}
+
+	// Default target (no setTarget): keep the file in the gallery. Files get a
+	// tracked object URL (preview/download); url references are stored as-is.
+	_localStore(acq, ctx) {
+		if (acq.url) {
+			return { name: acq.name || 'arquivo', ext: acq.ext, url: acq.url };
+		}
+		const f = acq.file;
+		if (!f) return null;
+		return {
+			name: f.name,
+			size: this._formatSize(f.size),
+			ext: this._extOf(f.name),
+			url: ctx.objectUrl(f),
+		};
+	}
+
+	_setProgress(msg) {
+		if (!this._uploadProgress) return;
+		this._uploadProgress.hidden = !msg;
+		this._uploadProgress.textContent = msg || '';
 	}
 
 	// Inline delete confirmation — one card armed at a time, auto-cancels.
