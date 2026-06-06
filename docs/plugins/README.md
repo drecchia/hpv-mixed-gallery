@@ -146,6 +146,7 @@ g.setTarget(new HpvConsoleTarget());
 | [`HpvCameraSource`](sources.md#hpvcamerasource) — real WebRTC | [`HpvXhrTarget`](targets.md#hpvxhrtarget) — multipart `POST` |
 | [`HpvUrlSource`](sources.md#hpvurlsource) — paste a URL | [`HpvS3Target`](targets.md#hpvs3target) — direct-to-S3 signed |
 | [`HpvUppySource`](sources.md#hpvuppysource) — Uppy Dashboard | |
+| [`HpvTelegramSource`](sources.md#hpvtelegramsource) — Telegram→WS (QR) | |
 
 Full options in [sources.md](sources.md) and [targets.md](targets.md).
 

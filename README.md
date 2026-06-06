@@ -108,6 +108,11 @@ source composes with any target. Full guide: [docs/plugins/README.md](docs/plugi
 - **`HpvUppySource`** (`uppy.js`) — inline **Uppy Dashboard** (needs the Uppy
   bundle + CSS). Options: `id`, `label`, `height`, `note`, `uppyOptions`,
   `dashboardOptions`.
+- **`HpvTelegramSource`** (`telegram.js`) — **Telegram bot → WebSocket** bridge
+  (`node-telegram2ws`): shows a **QR code**; photos the user sends in Telegram
+  stream into the gallery. Options: `id`, `label`, `url` (default
+  `ws://localhost:8081`), `locale`, `clientMeta`, `pingInterval`, plus UI copy.
+  Needs the bridge running.
 
 **Targets** (`src/js/targets/`, set one with `setTarget`):
 
