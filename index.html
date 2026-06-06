@@ -187,6 +187,10 @@
 					<option value="s3">Amazon S3</option>
 				</select></label
 			>
+			<label style="margin-left: 10px"
+				><input type="checkbox" id="readonly-toggle" /> Somente
+				leitura</label
+			>
 		</div>
 		<div id="media-library"></div>
 
@@ -531,6 +535,11 @@
 				.getElementById('target-select')
 				.addEventListener('change', (e) => {
 					gallery.setTarget(targets[e.target.value]);
+				});
+			document
+				.getElementById('readonly-toggle')
+				.addEventListener('change', (e) => {
+					gallery.setReadOnly(e.target.checked);
 				});
 		</script>
 	</body>
