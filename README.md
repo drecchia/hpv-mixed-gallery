@@ -102,9 +102,6 @@ source composes with any target. Full guide: [docs/plugins/README.md](docs/plugi
 - **`HpvCameraSource`** (`camera.js`) — **real WebRTC**: live preview, capture →
   JPEG → `addFiles`. Needs HTTPS/localhost. Options: `id`, `label`, `idleText`,
   `captureLabel`, `flipLabel`, `quality`, `maxWidth`, `facingMode`, `fileName`.
-- **`HpvUrlSource`** (`url.js`) — paste a remote URL; emits a `{ url }` acquisition
-  (the target decides whether to fetch). Options: `id`, `label`, `placeholder`,
-  `hint`, `addLabel`, `validate`, `nameFrom`.
 - **`HpvUppySource`** (`uppy.js`) — inline **Uppy Dashboard** (needs the Uppy
   bundle + CSS). Options: `id`, `label`, `height`, `note`, `uppyOptions`,
   `dashboardOptions`.
@@ -119,6 +116,12 @@ source composes with any target. Full guide: [docs/plugins/README.md](docs/plugi
   or a button (async Clipboard API); a copied http(s) URL becomes a reference.
   Options: `id`, `label`, `title`, `hint`, `pickLabel`, `emptyText`, `deniedText`.
   Zero-dependency.
+- **`HpvW2wsSource`** (`w2ws.js`) — **node-w2ws** bridge: a QR opens the bridge's
+  mobile uploader; the phone streams files (chunked, checksum-verified, resumable)
+  over a relayed WebSocket. Thin wrapper around the bridge's `W2WSConsumer` client
+  (vendored at `src/vendor/w2ws-consumer.js`). Options: `id`, `label`, `url`
+  (`wss://host/ws`, required), `opts` (else derived from the gallery limits), UI
+  copy. Needs the bridge running.
 
 **Targets** (`src/js/targets/`, set one with `setTarget`):
 

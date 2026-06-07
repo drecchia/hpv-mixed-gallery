@@ -26,7 +26,6 @@ source × target combinatorial explosion: any source composes with any target.
 const g = new HpvMixedGallery('media-library', { maxItems: 12 });
 g.registerSource(new HpvLocalSource());    // first → active tab
 g.registerSource(new HpvCameraSource());
-g.registerSource(new HpvUrlSource());
 g.setTarget(new HpvS3Target({ sign }));    // where everything goes (default: gallery/local)
 ```
 
@@ -144,10 +143,10 @@ g.setTarget(new HpvConsoleTarget());
 |---|---|
 | [`HpvLocalSource`](sources.md#hpvlocalsource) — picker + drag-drop | **built-in local** (default; no file) — keep in the gallery |
 | [`HpvCameraSource`](sources.md#hpvcamerasource) — real WebRTC | [`HpvXhrTarget`](targets.md#hpvxhrtarget) — multipart `POST` |
-| [`HpvUrlSource`](sources.md#hpvurlsource) — paste a URL | [`HpvS3Target`](targets.md#hpvs3target) — direct-to-S3 signed |
-| [`HpvUppySource`](sources.md#hpvuppysource) — Uppy Dashboard | |
+| [`HpvUppySource`](sources.md#hpvuppysource) — Uppy Dashboard | [`HpvS3Target`](targets.md#hpvs3target) — direct-to-S3 signed |
 | [`HpvTelegramSource`](sources.md#hpvtelegramsource) — Telegram→WS (QR) | |
 | [`HpvClipboardSource`](sources.md#hpvclipboardsource) — paste image/URL | |
+| [`HpvW2wsSource`](sources.md#hpvw2wssource) — node-w2ws QR→WS (chunked) | |
 
 Full options in [sources.md](sources.md) and [targets.md](targets.md).
 

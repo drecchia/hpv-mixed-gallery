@@ -53,30 +53,6 @@ g.registerSource(new HpvCameraSource({ maxWidth: 1920, quality: 0.9, facingMode:
 
 For headless testing: `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`.
 
-## HpvUrlSource
-
-`src/js/sources/url.js` — a URL field + Add button. Emits a `{ url, name, ext }`
-acquisition (no fetch); the **target** decides what to do with it (the local
-target stores the URL by reference; server/S3 targets fetch the bytes first).
-
-```js
-g.registerSource(new HpvUrlSource({ label: 'Link externo' }));
-```
-
-| Option | Default | Notes |
-|--------|---------|-------|
-| `id` | `'url'` | tab id |
-| `label` | `'Por URL'` | tab text |
-| `placeholder` | "https://exemplo.com/arquivo.jpg" | input placeholder |
-| `hint` | … | sub-text |
-| `addLabel` | `'Adicionar'` | submit button |
-| `validate` | `url => /^https?:\/\//i.test(url)` | URL validation |
-| `nameFrom` | `null` | `(url) => name` override |
-| `invalidText` | "Informe uma URL http(s) válida." | error |
-
-Type is inferred from the URL extension; extensionless URLs are generic files —
-pass `nameFrom` to supply a filename with an extension when needed.
-
 ## HpvUppySource
 
 `src/js/sources/uppy.js` — inline [Uppy](https://uppy.io) Dashboard; chosen files
@@ -169,3 +145,45 @@ The paste listener is global but **only acts while this tab is the active, open
 one** (so it never hijacks pasting elsewhere). The async button path requires a
 secure context + clipboard-read permission; if unavailable it points the user to
 Ctrl+V. Composes with any target (paste → S3, etc.).
+
+## HpvW2wsSource
+
+`src/js/sources/w2ws.js` — bridges the **node-w2ws** "Web-to-WebSocket" service:
+a QR opens the bridge's own **mobile uploader page**, and the phone streams files
+(chunked, checksum-verified, resumable) over a relayed WebSocket. Each finished
+file is handed to `gallery.addFiles` → the active target.
+
+Thin wrapper around the bridge's reference client **`W2WSConsumer`** (vendored at
+`src/vendor/w2ws-consumer.js`, a `window` global) — like `HpvUppySource` wraps
+Uppy. The client does the reassembly, SHA-256 verification, resume and reconnect;
+this source renders the QR and feeds completed blobs into the gallery.
+
+```html
+<script src="src/vendor/w2ws-consumer.js"></script>
+<script src="src/js/sources/w2ws.js"></script>
+```
+
+```js
+g.registerSource(new HpvW2wsSource({ url: 'wss://w2ws.example.com/ws' }));
+```
+
+| Option | Default | Notes |
+|--------|---------|-------|
+| `id` | `'w2ws'` | tab id |
+| `label` | `'Celular (QR)'` | tab text |
+| `url` | `''` | the bridge WS endpoint `wss://host/ws` (**required** — the client otherwise defaults to the current host, wrong from `file://`/another origin) |
+| `opts` | derived | `create_session` opts, **merged over** defaults derived from the gallery (`maxFiles ← maxItems`, `maxFileBytes ← maxSizeMB`, `locale`) — e.g. `{ locale: 'pt-BR' }` overrides just the locale. Server clamps to its ceilings. |
+| `title` / `steps` / `openLabel` / `connectingText` / `waitingHint` / `connectedHint` / `receivedText(n)` / `expiredText` / `retryLabel` / `errorText` / `checksumErrorText` / `missingText` | pt-BR | UI copy |
+
+**Behavior:** shows the QR (`qrPayload`) + a fallback link (`publicUrl`) + an
+expiry countdown; `onUploader` updates the status; **checksum-failed files are
+dropped** with an error; `session_expired`/errors show a **Gerar novo QR** retry.
+A consumer reconnect mints a new session → the client re-fires `onSession` and the
+QR re-renders. Filenames/MIME from the phone are untrusted — they only ever become
+a `File` name, never HTML (the core escapes everything it renders).
+
+**Setup:** needs a running node-w2ws bridge and `consumer-client.js` on the page
+(vendored here). Point `url` at the bridge; use `wss://` from an HTTPS page. No
+bridge-side change is required — the consumer side is unauthenticated in v1 (if the
+bridge later adds consumer auth/Origin allowlisting, pass it via `opts`/allowlist
+your origin).
