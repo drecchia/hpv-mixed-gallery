@@ -59,5 +59,9 @@ docs/                           this documentation
 ```
 
 > The demo (`index.html`) wires every source/target and external dep
-> (hpv-image-previewer, pdf.js, Uppy) plus a destination picker to show source ×
+> (hpv-image-previewer, EmbedPDF, Uppy) plus a destination picker to show source ×
 > target composability and preview/download end-to-end.
+>
+> **Serve the demo over http(s)** (e.g. `python3 -m http.server` then open
+> `http://localhost:8000/index.html`) — the PDF preview uses EmbedPDF, an ES
+> module + WASM engine that does **not** run from `file://`.
