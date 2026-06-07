@@ -105,13 +105,6 @@ source composes with any target. Full guide: [docs/plugins/README.md](docs/plugi
 - **`HpvUppySource`** (`uppy.js`) — inline **Uppy Dashboard** (needs the Uppy
   bundle + CSS). Options: `id`, `label`, `height`, `note`, `uppyOptions`,
   `dashboardOptions`.
-- **`HpvTelegramSource`** (`telegram.js`) — **Telegram bot → WebSocket** bridge:
-  shows a **QR code**; photos the user sends in Telegram stream into the gallery.
-  Supports two wire protocols via `protocol`: `'telegram2ws'` (default —
-  create_session/session_created/media_forward/ack) and `'i2w'` (the `@i2w_bot`
-  bridge — no handshake; server pushes `{type:'qrcode'|'image', base64}`). Options:
-  `id`, `label`, `url` (default `ws://localhost:8081`), `protocol`, `locale`,
-  `clientMeta`, `pingInterval`, plus UI copy. Needs the bridge running.
 - **`HpvClipboardSource`** (`clipboard.js`) — **paste** an image with Ctrl/Cmd+V
   or a button (async Clipboard API); a copied http(s) URL becomes a reference.
   Options: `id`, `label`, `title`, `hint`, `pickLabel`, `emptyText`, `deniedText`.

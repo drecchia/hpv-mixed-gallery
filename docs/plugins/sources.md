@@ -75,53 +75,6 @@ g.registerSource(new HpvUppySource({ height: 360, note: 'Imagens e documentos' }
 Files are wrapped in a named `File` before `addFiles` (Uppy's Webcam/Url sources
 yield a nameless `Blob`, which the core would otherwise drop).
 
-## HpvTelegramSource
-
-`src/js/sources/telegram.js` — bridges a **Telegram bot** into the gallery over a
-**WebSocket** (the `node-telegram2ws` bridge). It shows a
-**QR code**; the user scans it to open a Telegram bot session, then the photos
-they send in Telegram stream in and are handed to `gallery.addFiles` (→ the active
-target, so Telegram photos compose with any storage).
-
-```js
-g.registerSource(new HpvTelegramSource({ url: 'wss://bridge.example.com' }));
-```
-
-| Option | Default | Notes |
-|--------|---------|-------|
-| `id` | `'telegram'` | tab id |
-| `label` | `'Telegram'` | tab text |
-| `url` | `'ws://localhost:8081'` | the bridge WebSocket endpoint |
-| `protocol` | `'telegram2ws'` | wire protocol: `'telegram2ws'` or `'i2w'` (see below) |
-| `locale` | browser language | sent in `create_session` (telegram2ws) |
-| `clientMeta` | `null` | optional `{ timezone, … }` sent in `create_session` (telegram2ws) |
-| `pingInterval` | `25000` | heartbeat ping (ms, telegram2ws) |
-| `title` / `steps` / `openLabel` / `connectingText` / `waitingHint` / `receivedText(n)` / `expiredText` / `retryLabel` / `errorText` / `mediaErrorText` | pt-BR | UI copy |
-
-**Protocols.** Two wire formats are supported (`protocol` option):
-
-- **`telegram2ws`** (default, `FORWARD_PICTURE` mode):
-  `→ create_session` ⟶ `← session_created { qrPayload, deepLink, expiresAt }`
-  (QR + deep-link button + ~5 min countdown shown) ⟶
-  `← media_forward { messageId, media:{ mime, data, metadata } }` →
-  `→ ack { messageId }` (bridge resends/times out at 10s). On expiry a
-  **Gerar novo QR** button regenerates; `session_error`/`error`/disconnect → retry.
-- **`i2w`** (the `@i2w_bot` bridge): **no handshake or ack** — on connect the server
-  pushes `← { type:'qrcode', base64 }` (QR shown; no deep link / countdown) and then
-  `← { type:'image', base64, mime }` per photo. `base64` is a full data URL.
-
-`media.data` / `base64` may be a data URL or bare base64 — both are handled.
-
-**Lifecycle:** the WebSocket opens on tab-show (`onShow`) and closes on
-tab-hide/`destroy` — the bridge cleans the session up on disconnect, so the user
-should stay on the tab while sending photos.
-
-**Setup:** requires the `node-telegram2ws` bridge running (a Telegram bot token +
-the WS server). Point `url` at it; cross-origin needs `wss://` from an HTTPS page.
-For a local demo without a real bot, run the bundled zero-dep mock —
-`node mock/telegram2ws-mock.js` — and use its `/sim` page to push photos (see
-[mock/README.md](../../mock/README.md)).
-
 ## HpvClipboardSource
 
 `src/js/sources/clipboard.js` — paste from the clipboard. Two ways in: press

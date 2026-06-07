@@ -204,20 +204,20 @@
 	text-align: center;
 }
 
-/* Telegram source — QR + session UI */
-.hpv-mixed-gallery .mg-telegram {
+/* QR source UI (used by HpvW2wsSource) */
+.hpv-mixed-gallery .mg-qr {
 	min-height: 200px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
-.hpv-mixed-gallery .mg-tg-grid {
+.hpv-mixed-gallery .mg-qr-grid {
 	display: flex;
 	gap: 1.25rem;
 	align-items: center;
 	width: 100%;
 }
-.hpv-mixed-gallery .mg-tg-qr {
+.hpv-mixed-gallery .mg-qr-qr {
 	flex: 0 0 auto;
 	width: 180px;
 	height: 180px;
@@ -226,45 +226,45 @@
 	background: #fff;
 	padding: 6px;
 }
-.hpv-mixed-gallery .mg-tg-info {
+.hpv-mixed-gallery .mg-qr-info {
 	flex: 1 1 auto;
 	min-width: 0;
 }
-.hpv-mixed-gallery .mg-tg-title {
+.hpv-mixed-gallery .mg-qr-title {
 	font-size: 13px;
 	font-weight: 600;
 	margin: 0 0 0.4rem;
 }
-.hpv-mixed-gallery .mg-tg-steps {
+.hpv-mixed-gallery .mg-qr-steps {
 	margin: 0 0 0.6rem 1.1rem;
 	padding: 0;
 	font-size: 12px;
 	color: var(--mg-text-sub);
 	line-height: 1.5;
 }
-.hpv-mixed-gallery .mg-tg-meta {
+.hpv-mixed-gallery .mg-qr-meta {
 	margin: 0.5rem 0 0;
 	font-size: 12px;
 	color: var(--mg-text-sub);
 }
-.hpv-mixed-gallery .mg-tg-status {
+.hpv-mixed-gallery .mg-qr-status {
 	font-size: 13px;
 	color: var(--mg-text-sub);
 	margin: 0 0 0.75rem;
 }
-.hpv-mixed-gallery .mg-tg-error {
+.hpv-mixed-gallery .mg-qr-error {
 	color: var(--mg-danger, #c0392b);
 }
-.hpv-mixed-gallery .mg-tg-center {
+.hpv-mixed-gallery .mg-qr-center {
 	text-align: center;
 	padding: 1rem;
 }
 @media (max-width: 480px) {
-	.hpv-mixed-gallery .mg-tg-grid {
+	.hpv-mixed-gallery .mg-qr-grid {
 		flex-direction: column;
 		text-align: center;
 	}
-	.hpv-mixed-gallery .mg-tg-steps {
+	.hpv-mixed-gallery .mg-qr-steps {
 		text-align: left;
 	}
 }

@@ -56,7 +56,7 @@ class HpvW2wsSource {
 	}
 
 	renderArea(gallery) {
-		return `<div class="mg-telegram" data-plugin="${gallery._escape(this.id)}" data-role="w2-root"></div>`;
+		return `<div class="mg-qr" data-plugin="${gallery._escape(this.id)}" data-role="w2-root"></div>`;
 	}
 
 	onShow() {
@@ -183,7 +183,7 @@ class HpvW2wsSource {
 		this._renderReceived();
 	}
 
-	// -- rendering (reuses the .mg-tg-* styles) --
+	// -- rendering (reuses the .mg-qr-* styles) --
 
 	_root() {
 		return (
@@ -207,7 +207,7 @@ class HpvW2wsSource {
 		const esc = (x) => this.gallery._escape(x);
 
 		if (s.phase === 'connecting') {
-			root.innerHTML = `<p class="mg-tg-status">${esc(o.connectingText)}</p>`;
+			root.innerHTML = `<p class="mg-qr-status">${esc(o.connectingText)}</p>`;
 			return;
 		}
 		if (s.phase === 'waiting') {
@@ -218,19 +218,19 @@ class HpvW2wsSource {
 			const link = this._safeLink(s.deepLink);
 			const openBtn =
 				s.deepLink && link !== '#'
-					? `<a class="button is-small is-link mg-tg-open" href="${esc(link)}" target="_blank" rel="noopener"><span class="icon"><i class="fa-solid fa-mobile-screen-button"></i></span><span>${esc(o.openLabel)}</span></a>`
+					? `<a class="button is-small is-link mg-qr-open" href="${esc(link)}" target="_blank" rel="noopener"><span class="icon"><i class="fa-solid fa-mobile-screen-button"></i></span><span>${esc(o.openLabel)}</span></a>`
 					: '';
 			const countdown = s.expiresAt
 				? ` · <span data-role="w2-countdown"></span>`
 				: '';
 			root.innerHTML = `
-				<div class="mg-tg-grid">
-					<img class="mg-tg-qr" src="${esc(s.qrPayload)}" alt="QR code upload" width="180" height="180" />
-					<div class="mg-tg-info">
-						<p class="mg-tg-title">${esc(o.title)}</p>
-						<ol class="mg-tg-steps">${steps}</ol>
+				<div class="mg-qr-grid">
+					<img class="mg-qr-qr" src="${esc(s.qrPayload)}" alt="QR code upload" width="180" height="180" />
+					<div class="mg-qr-info">
+						<p class="mg-qr-title">${esc(o.title)}</p>
+						<ol class="mg-qr-steps">${steps}</ol>
 						${openBtn}
-						<p class="mg-tg-meta"><span data-role="w2-meta">${meta}</span>${countdown}</p>
+						<p class="mg-qr-meta"><span data-role="w2-meta">${meta}</span>${countdown}</p>
 					</div>
 				</div>`;
 			if (s.expiresAt) this._tick();
@@ -238,10 +238,10 @@ class HpvW2wsSource {
 		}
 		const text =
 			s.phase === 'expired' ? o.expiredText : s.error || o.errorText;
-		const cls = s.phase === 'error' ? ' mg-tg-error' : '';
+		const cls = s.phase === 'error' ? ' mg-qr-error' : '';
 		root.innerHTML = `
-			<div class="mg-tg-center">
-				<p class="mg-tg-status${cls}">${esc(text)}</p>
+			<div class="mg-qr-center">
+				<p class="mg-qr-status${cls}">${esc(text)}</p>
 				<button class="button is-small is-dark mg-accent-btn" type="button" data-role="w2-retry" data-plugin="${esc(this.id)}">${esc(o.retryLabel)}</button>
 			</div>`;
 	}

@@ -11,12 +11,11 @@ There is **no build system, no package.json, no test runner, no linter, no modul
 ## Files
 
 - `src/js/hpv-mixed-gallery.js` — the core (`HpvMixedGallery` class + `HpvMixedGalleryError`).
-- `src/js/sources/` — upload sources (the tabs): `local.js` `HpvLocalSource` (picker + drag-drop), `camera.js` `HpvCameraSource` (real WebRTC; needs HTTPS/localhost), `uppy.js` `HpvUppySource` (inline Uppy Dashboard; needs the Uppy bundle), `telegram.js` `HpvTelegramSource` (Telegram bot → WebSocket bridge `node-telegram2ws`; shows a QR, photos stream in via WS; needs the bridge running), `clipboard.js` `HpvClipboardSource` (paste image/URL via Ctrl+V or the async Clipboard API), `w2ws.js` `HpvW2wsSource` (node-w2ws QR→WS bridge; thin wrapper around the vendored `W2WSConsumer` client — chunked/checksum/resume; needs the bridge running).
+- `src/js/sources/` — upload sources (the tabs): `local.js` `HpvLocalSource` (picker + drag-drop), `camera.js` `HpvCameraSource` (real WebRTC; needs HTTPS/localhost), `uppy.js` `HpvUppySource` (inline Uppy Dashboard; needs the Uppy bundle), `clipboard.js` `HpvClipboardSource` (paste image/URL via Ctrl+V or the async Clipboard API), `w2ws.js` `HpvW2wsSource` (node-w2ws QR→WS bridge; thin wrapper around the vendored `W2WSConsumer` client — chunked/checksum/resume; needs the bridge running).
 - `src/vendor/` — third-party reference clients vendored verbatim: `w2ws-consumer.js` (node-w2ws `W2WSConsumer`, a `window` global used by `HpvW2wsSource`).
 - `src/js/targets/` — storage targets: `xhr.js` `HpvXhrTarget` (multipart POST), `s3.js` `HpvS3Target` (direct-to-S3 signed; needs a backend `sign`/`signEndpoint`). The built-in **local** store (object URL / url-by-reference) is the default when no target is set — no class.
 - `src/css/hpv-mixed-gallery.css` — all styles, every rule scoped under `.hpv-mixed-gallery`.
 - `index.html` — the runnable demo (registers the sources + a destination picker that calls `setTarget`).
-- `mock/telegram2ws-mock.js` — zero-dep mock of the node-telegram2ws bridge (WS + a `/sim` page) to demo `HpvTelegramSource` end-to-end without a real bot; see `mock/README.md`.
 - `README.md` — public options/API reference; keep it in sync when changing options.
 - `docs/` — extensive documentation, split by area: `docs/core.md` (the class), `docs/plugins/` (the source/target system + `sources.md`/`targets.md`), `docs/proposals/` (design rationale). Update alongside code changes.
 
