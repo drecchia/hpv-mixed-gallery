@@ -322,13 +322,26 @@ class HpvMixedGallery {
 		if (this.options.onRemove) this.options.onRemove(this, id, asset);
 	}
 
+	// Assets in DISPLAY order (newest-first, matching the grid) — the Map keeps
+	// insertion order, but cards are prepended, so read the DOM as the source of
+	// truth so a previewer/lightbox matches what the user sees.
+	_orderedAssets() {
+		const out = [];
+		// direct children only — the card columns (inner buttons also carry data-id)
+		Array.from(this._grid.children).forEach((node) => {
+			const a = this.items.get(node.getAttribute('data-id'));
+			if (a) out.push(a); // skip cards mid-removal (already gone from the Map)
+		});
+		return out;
+	}
+
 	getAssets() {
-		return Array.from(this.items.values()).map((a) => ({ ...a }));
+		return this._orderedAssets().map((a) => ({ ...a }));
 	}
 
 	// Image-type assets only (handy for wiring a previewer/lightbox).
 	getImages() {
-		return Array.from(this.items.values())
+		return this._orderedAssets()
 			.filter((a) => this._isImage(a.ext))
 			.map((a) => ({ ...a }));
 	}
