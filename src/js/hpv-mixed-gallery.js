@@ -58,6 +58,11 @@ class HpvMixedGallery {
 			onItemClick: null, // fn(component, asset, id) — any card clicked
 			onSave: null, // fn(component, assets)
 			onCreate: null, // fn(component)
+			// renderItem(asset, helpers) => html — override the card's inner content.
+			// helpers: { escape, preview(asset), actions(asset), labels }. The core
+			// still owns the column wrapper (data-id + animations); reuse
+			// helpers.preview/actions to keep click-to-preview + delete working.
+			renderItem: null,
 			isDebug: false,
 		};
 
@@ -451,35 +456,64 @@ class HpvMixedGallery {
 		this._uploadArea.innerHTML = p ? p.renderArea(this) : '';
 	}
 
+	// The core always owns the column wrapper (data-id + entrance/removal/confirm
+	// state classes), so animations and delete keep working; only the inside is
+	// customizable via options.renderItem.
 	_renderCard(a) {
-		const L = this.options.labels;
 		return `
 			<div class="column is-4-desktop is-4-tablet is-6-mobile" data-id="${a.id}">
-				<div class="library-card">
-					${this._renderPreview(a)}
-					<div class="library-card-info">
-						<div class="is-flex is-justify-content-between is-align-items-center">
-							<div class="mg-card-meta">
-								<p class="library-title" title="${this._escape(a.name)}">${this._escape(a.name)}</p>
-								<p class="library-meta">${this._escape(a.size)}${a.size ? ' • ' : ''}${this._escape(a.ext)}</p>
-							</div>
-							<span class="mg-card-actions">
-								<button class="btn-delete-asset mg-trash" data-action="remove" data-id="${a.id}" title="${this._escape(L.removeTitle)}" aria-label="${this._escape(L.removeTitle)}">
-									<i class="fa-regular fa-trash-can"></i>
-								</button>
-								<span class="mg-confirm">
-									<button class="btn-confirm-remove" data-action="remove-confirm" data-id="${a.id}" title="${this._escape(L.confirmRemoveTitle)}" aria-label="${this._escape(L.confirmRemoveTitle)}">
-										<i class="fa-solid fa-check"></i>
-									</button>
-									<button class="btn-cancel-remove" data-action="remove-cancel" data-id="${a.id}" title="${this._escape(L.cancelTitle)}" aria-label="${this._escape(L.cancelTitle)}">
-										<i class="fa-solid fa-xmark"></i>
-									</button>
-								</span>
-							</span>
+				${this._renderItemContent(a)}
+			</div>`;
+	}
+
+	_renderItemContent(a) {
+		if (typeof this.options.renderItem === 'function') {
+			return this.options.renderItem({ ...a }, this._itemHelpers());
+		}
+		return `
+			<div class="library-card">
+				${this._renderPreview(a)}
+				<div class="library-card-info">
+					<div class="is-flex is-justify-content-between is-align-items-center">
+						<div class="mg-card-meta">
+							<p class="library-title" title="${this._escape(a.name)}">${this._escape(a.name)}</p>
+							<p class="library-meta">${this._escape(a.size)}${a.size ? ' • ' : ''}${this._escape(a.ext)}</p>
 						</div>
+						${this._renderActions(a)}
 					</div>
 				</div>
 			</div>`;
+	}
+
+	// Trash + inline confirm/cancel controls (the data-action hooks the core's
+	// click handler listens for). Reusable from a custom renderItem.
+	_renderActions(a) {
+		const L = this.options.labels;
+		return `
+			<span class="mg-card-actions">
+				<button class="btn-delete-asset mg-trash" data-action="remove" data-id="${a.id}" title="${this._escape(L.removeTitle)}" aria-label="${this._escape(L.removeTitle)}">
+					<i class="fa-regular fa-trash-can"></i>
+				</button>
+				<span class="mg-confirm">
+					<button class="btn-confirm-remove" data-action="remove-confirm" data-id="${a.id}" title="${this._escape(L.confirmRemoveTitle)}" aria-label="${this._escape(L.confirmRemoveTitle)}">
+						<i class="fa-solid fa-check"></i>
+					</button>
+					<button class="btn-cancel-remove" data-action="remove-cancel" data-id="${a.id}" title="${this._escape(L.cancelTitle)}" aria-label="${this._escape(L.cancelTitle)}">
+						<i class="fa-solid fa-xmark"></i>
+					</button>
+				</span>
+			</span>`;
+	}
+
+	// Helpers handed to options.renderItem so a custom card can reuse the
+	// interactive pieces (keeps onItemClick + delete working) and escape safely.
+	_itemHelpers() {
+		return {
+			escape: (s) => this._escape(s),
+			preview: (asset) => this._renderPreview(asset), // activatable thumb/icon
+			actions: (asset) => this._renderActions(asset), // trash + confirm/cancel
+			labels: this.options.labels,
+		};
 	}
 
 	_renderPreview(a) {
