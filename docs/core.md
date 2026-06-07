@@ -57,6 +57,7 @@ the grid is then updated incrementally (insert/remove), never fully re-rendered.
 | `onRemove` | function | `null` | `fn(gallery, id, asset)` after an asset is removed. |
 | `onReject` | function | `null` | `fn(gallery, file, reason)` — currently `reason === 'too-large'`. |
 | `onItemClick` | function | `null` | `fn(gallery, asset, id)` when any card is clicked. See [Item click](#item-click-previewdownload-hook). |
+| `renderItem` | function | `null` | `fn(asset, helpers) => html` — override the card's inner content. See [Custom item render](#custom-item-render). |
 | `onSave` | function | `null` | `fn(gallery, assets)` when "Salvar Galeria" is clicked. |
 | `onCreate` | function | `null` | `fn(gallery)` at end of construction. |
 | `isDebug` | boolean | `false` | Routes `debug()` calls to `console`. |
@@ -251,6 +252,42 @@ onItemClick: (g, asset) => {
   else downloadAsset(asset);
 }
 ```
+
+## Custom item render
+
+`renderItem(asset, helpers) => htmlString` overrides the **inner content** of a
+card. The core still owns the column wrapper — `data-id` and the entrance/removal/
+confirm state classes — so animations, ordering, and delete targeting keep working
+regardless of what you return.
+
+`helpers`:
+
+| Member | Returns |
+|--------|---------|
+| `escape(str)` | HTML-escaped string (use for any asset field you interpolate). |
+| `preview(asset)` | the default activatable thumbnail/icon block (`data-action="item"` → fires `onItemClick`). |
+| `actions(asset)` | the default trash + inline confirm/cancel controls (the `data-action="remove…"` hooks). |
+| `labels` | `options.labels`. |
+
+Reuse `helpers.preview`/`helpers.actions` to keep click-to-preview and delete
+working; you only restyle the layout/metadata around them.
+
+```js
+new HpvMixedGallery('media-library', {
+  renderItem: (a, h) => `
+    <div class="my-card">
+      ${h.preview(a)}
+      <div class="my-meta">
+        <strong>${h.escape(a.name)}</strong>
+        <span>${h.escape(a.size)} · ${h.escape(a.ext)}</span>
+      </div>
+      ${h.actions(a)}
+    </div>`,
+});
+```
+
+`renderItem` output is raw HTML — escape any asset-derived string via
+`helpers.escape` (filenames are untrusted).
 
 ## Animations
 

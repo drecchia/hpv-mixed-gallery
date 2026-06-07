@@ -54,6 +54,7 @@ gallery (grid, delete, save, preview hooks) still works.
 | `onRemove`      | function | `null`  | `fn(component, id, asset)`              |
 | `onReject`      | function | `null`  | `fn(component, file, reason)` — e.g. `'too-large'`. |
 | `onItemClick`   | function | `null`  | `fn(component, asset, id)` — fired when any card is clicked; branch on `asset.ext`. |
+| `renderItem`    | function | `null`  | `fn(asset, helpers) => html` — override the card's inner content. `helpers`: `escape`, `preview(asset)`, `actions(asset)`, `labels`. Core keeps the column wrapper (data-id + animations); reuse `helpers.preview`/`actions` to keep click + delete working. |
 | `onSave`        | function | `null`  | `fn(component, assets)`                  |
 | `onCreate`      | function | `null`  | `fn(component)`                          |
 | `isDebug`       | boolean  | `false` | Routes `debug()` to `console`.          |
