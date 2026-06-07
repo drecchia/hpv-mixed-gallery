@@ -9,6 +9,7 @@ class HpvXhrTarget {
 		this.options = {
 			endpoint: options.endpoint || '/upload',
 			fieldName: options.fieldName || 'file',
+			thumbFieldName: options.thumbFieldName || 'thumb', // field for the thumbnail
 			headers: options.headers || {},
 			withCredentials: !!options.withCredentials,
 			timeout: options.timeout || 60000,
@@ -21,22 +22,45 @@ class HpvXhrTarget {
 		const file = acq.file || (await this._fetchToFile(acq.url));
 		const parsed = await this._post(file, ctx);
 		const url = typeof parsed === 'string' ? parsed : parsed && parsed.url;
+		// upload the thumbnail too (separate field/request) so both are persisted
+		let thumbUrl;
+		if (acq.thumb) {
+			const tfile = new File(
+				[acq.thumb],
+				this._thumbName(file, acq.thumb),
+				{
+					type: acq.thumb.type,
+				},
+			);
+			const tp = await this._post(
+				tfile,
+				ctx,
+				this.options.thumbFieldName,
+			);
+			thumbUrl = typeof tp === 'string' ? tp : tp && tp.url;
+		}
 		return {
 			name: (parsed && parsed.name) || file.name,
 			size: (parsed && parsed.size) || this._fmtSize(file.size),
 			ext: (parsed && parsed.ext) || this._ext(file.name),
 			url: url || undefined,
+			thumbUrl: thumbUrl || undefined,
 		};
+	}
+
+	_thumbName(file, thumb) {
+		const ext = (thumb.type.split('/')[1] || 'webp').replace('jpeg', 'jpg');
+		return file.name + '.thumb.' + ext;
 	}
 
 	// -- internal --
 
-	_post(file, ctx) {
+	_post(file, ctx, fieldName) {
 		const o = this.options;
 		return new Promise((resolve, reject) => {
 			const xhr = new XMLHttpRequest();
 			const form = new FormData();
-			form.append(o.fieldName, file, file.name);
+			form.append(fieldName || o.fieldName, file, file.name);
 			xhr.open('POST', o.endpoint, true);
 			xhr.timeout = o.timeout;
 			xhr.withCredentials = o.withCredentials;

@@ -29,11 +29,28 @@ class HpvS3Target {
 		if (!signed || !signed.url)
 			throw new Error(`Sem URL assinada para "${file.name}".`);
 		await this._upload(signed, file, ctx);
+		// sign + upload the thumbnail too, so both are stored in the bucket
+		let thumbUrl;
+		if (acq.thumb) {
+			const ext = (acq.thumb.type.split('/')[1] || 'webp').replace(
+				'jpeg',
+				'jpg',
+			);
+			const tfile = new File([acq.thumb], file.name + '.thumb.' + ext, {
+				type: acq.thumb.type,
+			});
+			const tsigned = await this._sign(tfile);
+			if (tsigned && tsigned.url) {
+				await this._upload(tsigned, tfile, ctx);
+				thumbUrl = this._publicUrl(tfile, tsigned) || undefined;
+			}
+		}
 		return {
 			name: file.name,
 			size: this._fmtSize(file.size),
 			ext: this._ext(file.name),
 			url: this._publicUrl(file, signed) || undefined,
+			thumbUrl: thumbUrl,
 		};
 	}
 
