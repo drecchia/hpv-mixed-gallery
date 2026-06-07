@@ -21,6 +21,7 @@ class HpvMixedGallery {
 			confirmRemove: true, // require an inline confirm before deleting a card
 			target: null, // storage Target { store(acq, ctx) }; null = built-in local store
 			readOnly: false, // view-only: hide upload/delete/save UI; previews still work
+			thumbnails: false, // false | { maxWidth, type, quality } — client-side card thumbs
 			// --- all user-facing copy (override any single string; pt-BR defaults).
 			//     Upload-method strings (tab label, dropzone copy) live in the
 			//     registered upload plugins, not here.
@@ -80,6 +81,14 @@ class HpvMixedGallery {
 		this._sources = []; // registered upload sources (the tabs)
 		this._target = this.options.target || null; // active storage target
 		this.readOnly = !!this.options.readOnly; // view-only mode
+		const t = this.options.thumbnails;
+		this._thumbCfg = t
+			? {
+					maxWidth: t.maxWidth || 400,
+					type: t.type || 'image/webp',
+					quality: t.quality || 0.8,
+				}
+			: null; // client-side thumbnail config (null = off)
 		this._seq = 0;
 		this._confirmingId = null; // card currently armed for delete (one at a time)
 		this._confirmTimeout = null;
@@ -394,6 +403,7 @@ class HpvMixedGallery {
 			ext,
 		};
 		if (asset.url) stored.url = asset.url + ''; // optional preview source
+		if (asset.thumbUrl) stored.thumbUrl = asset.thumbUrl + ''; // small card thumb
 		this.items.set(id, stored);
 		// newest-first: user-added cards go to the top; initial items keep order
 		this._grid.insertAdjacentHTML(
@@ -477,9 +487,10 @@ class HpvMixedGallery {
 		// is keyboard-focusable for a11y.
 		const attrs = `data-action="item" data-id="${a.id}" role="button" tabindex="0" aria-label="${this._escape(a.name)}"`;
 		if (this._isImage(a.ext)) {
-			// real thumbnail when the asset has a url, else a placeholder icon
-			const inner = a.url
-				? `<img class="mg-thumb" src="${this._escape(a.url)}" alt="${this._escape(a.name)}" loading="lazy" draggable="false">`
+			// card uses the small thumb when present; the previewer uses the full url
+			const src = a.thumbUrl || a.url;
+			const inner = src
+				? `<img class="mg-thumb" src="${this._escape(src)}" alt="${this._escape(a.name)}" loading="lazy" draggable="false">`
 				: `<i class="fa-regular fa-image mg-img-icon"></i>`;
 			return `<div class="mini-view mg-img-view" ${attrs}>${inner}</div>`;
 		}
@@ -589,10 +600,17 @@ class HpvMixedGallery {
 			}
 			this._clearUploadError();
 			try {
+				let a = acq;
+				// generate a card thumbnail (when enabled) and pass it to the
+				// target so both the original and the thumb get persisted
+				if (a.file && this._thumbCfg) {
+					const thumb = await this._makeThumb(a.file);
+					if (thumb) a = { ...a, thumb };
+				}
 				const store = this._target
 					? this._target.store.bind(this._target)
 					: this._localStore.bind(this);
-				const asset = await store(acq, ctx);
+				const asset = await store(a, ctx);
 				if (asset) this.addAsset(asset);
 			} catch (err) {
 				this._showUploadError(
@@ -651,7 +669,71 @@ class HpvMixedGallery {
 			size: this._formatSize(f.size),
 			ext: this._extOf(f.name),
 			url: ctx.objectUrl(f),
+			thumbUrl: acq.thumb ? ctx.objectUrl(acq.thumb) : undefined,
 		};
+	}
+
+	// Generate a downscaled thumbnail Blob for an image file, client-side.
+	// Returns null for non-images/SVG, already-small images, HEIC/decode
+	// failures, or any error — callers then fall back to the original.
+	async _makeThumb(file) {
+		const cfg = this._thumbCfg;
+		if (!cfg) return null;
+		const type = (file && file.type) || '';
+		if (!/^image\//.test(type) || type === 'image/svg+xml') return null;
+		const maxW = cfg.maxWidth;
+		try {
+			let canvas, w, h;
+			if (typeof createImageBitmap === 'function') {
+				const bmp = await createImageBitmap(file, {
+					imageOrientation: 'from-image',
+				});
+				if (bmp.width <= maxW) {
+					if (bmp.close) bmp.close();
+					return null; // already small enough
+				}
+				w = maxW;
+				h = Math.round((bmp.height * maxW) / bmp.width);
+				canvas = document.createElement('canvas');
+				canvas.width = w;
+				canvas.height = h;
+				canvas.getContext('2d').drawImage(bmp, 0, 0, w, h);
+				if (bmp.close) bmp.close();
+			} else {
+				// fallback for browsers without createImageBitmap
+				const url = URL.createObjectURL(file);
+				try {
+					const img = await new Promise((res, rej) => {
+						const i = new Image();
+						i.onload = () => res(i);
+						i.onerror = rej;
+						i.src = url;
+					});
+					if (img.naturalWidth <= maxW) return null;
+					w = maxW;
+					h = Math.round(
+						(img.naturalHeight * maxW) / img.naturalWidth,
+					);
+					canvas = document.createElement('canvas');
+					canvas.width = w;
+					canvas.height = h;
+					canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+				} finally {
+					URL.revokeObjectURL(url);
+				}
+			}
+			let blob = await new Promise((res) =>
+				canvas.toBlob(res, cfg.type, cfg.quality),
+			);
+			if (!blob && cfg.type !== 'image/jpeg')
+				blob = await new Promise((res) =>
+					canvas.toBlob(res, 'image/jpeg', cfg.quality),
+				);
+			return blob || null;
+		} catch (e) {
+			this.debug('warn', 'thumbnail generation failed', e);
+			return null;
+		}
 	}
 
 	_setProgress(msg) {
@@ -777,10 +859,13 @@ class HpvMixedGallery {
 
 	// Revoke object URLs we created (never caller-supplied urls like the demo's).
 	_revokeOwnedUrl(asset) {
-		if (asset && asset.url && this._objectUrls.has(asset.url)) {
-			URL.revokeObjectURL(asset.url);
-			this._objectUrls.delete(asset.url);
-		}
+		if (!asset) return;
+		[asset.url, asset.thumbUrl].forEach((u) => {
+			if (u && this._objectUrls.has(u)) {
+				URL.revokeObjectURL(u);
+				this._objectUrls.delete(u);
+			}
+		});
 	}
 
 	_revokeAllOwnedUrls() {
