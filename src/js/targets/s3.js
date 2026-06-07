@@ -20,12 +20,16 @@ class HpvS3Target {
 			withCredentials: !!options.withCredentials,
 			timeout: options.timeout || 60000,
 			publicUrl: options.publicUrl || null, // (file, signed) => url
+			// extra context sent to sign()/signEndpoint so the backend can choose
+			// the object key: an object or (file) => object,
+			// e.g. { entity: 'invoice', id: 42 }
+			meta: options.meta || null,
 		};
 	}
 
 	async store(acq, ctx) {
 		const file = acq.file || (await this._fetchToFile(acq.url));
-		const signed = await this._sign(file);
+		const signed = await this._sign(file, 'original');
 		if (!signed || !signed.url)
 			throw new Error(`Sem URL assinada para "${file.name}".`);
 		await this._upload(signed, file, ctx);
@@ -39,7 +43,7 @@ class HpvS3Target {
 			const tfile = new File([acq.thumb], file.name + '.thumb.' + ext, {
 				type: acq.thumb.type,
 			});
-			const tsigned = await this._sign(tfile);
+			const tsigned = await this._sign(tfile, 'thumbnail');
 			if (tsigned && tsigned.url) {
 				await this._upload(tsigned, tfile, ctx);
 				thumbUrl = this._publicUrl(tfile, tsigned) || undefined;
@@ -56,9 +60,17 @@ class HpvS3Target {
 
 	// -- internal --
 
-	async _sign(file) {
+	// kind: 'original' | 'thumbnail'. Passes the current page URL + caller meta
+	// (entity/id, …) as context so the backend can choose the object key.
+	async _sign(file, kind) {
 		const o = this.options;
-		if (typeof o.sign === 'function') return o.sign(file);
+		const meta = typeof o.meta === 'function' ? o.meta(file) : o.meta;
+		const info = {
+			url: typeof location !== 'undefined' ? location.href : undefined,
+			kind: kind || 'original',
+			meta: meta || undefined,
+		};
+		if (typeof o.sign === 'function') return o.sign(file, info);
 		if (!o.signEndpoint)
 			throw new Error('HpvS3Target: provide sign() or signEndpoint.');
 		const res = await fetch(o.signEndpoint, {
@@ -69,6 +81,7 @@ class HpvS3Target {
 				name: file.name,
 				type: file.type,
 				size: file.size,
+				...info,
 			}),
 		});
 		if (!res.ok) throw new Error('Falha ao assinar — ' + res.status);
