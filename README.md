@@ -126,9 +126,11 @@ source composes with any target. Full guide: [docs/plugins/README.md](docs/plugi
   `id`, `endpoint`, `fieldName`, `headers`, `withCredentials`, `timeout`,
   `responseParser`.
 - **`HpvS3Target`** (`s3.js`) — direct browser→S3 signed upload (PUT/POST); browser
-  holds no AWS keys. Options: `sign(file)` **or** `signEndpoint` (+ `signMethod`,
+  holds no AWS keys. Options: `sign(file, ctx)` **or** `signEndpoint` (+ `signMethod`,
   `signHeaders`), `method`, `fieldName`, `headers`, `withCredentials`, `timeout`,
-  `publicUrl(file, signed)`.
+  `publicUrl(file, signed)`, `meta`. `sign` gets a context `{ url, kind, meta }`
+  (current page URL, `'original'`/`'thumbnail'`, your `meta` object) — and the same
+  fields go in the `signEndpoint` body — so the backend can choose the object key.
 
 ```js
 // any source → S3: register sources, set the S3 target once

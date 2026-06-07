@@ -76,6 +76,27 @@ gallery.setTarget(new HpvS3Target({
 | `withCredentials` | `false` | credentials for the sign request |
 | `timeout` | `60000` | upload timeout (ms) |
 | `publicUrl` | `null` | `(file, signed) => url` to override the stored URL |
+| `meta` | `null` | extra context for the backend to choose the object key — an object or `(file) => object`, e.g. `{ entity: 'invoice', id: 42 }` |
+
+**Sign context.** `sign` is called as `sign(file, { url, kind, meta })` and the
+`signEndpoint` body includes those fields too — so the backend can decide the key:
+- `url` — the current page URL (`location.href`).
+- `kind` — `'original'` or `'thumbnail'` (the thumb file is `<name>.thumb.<ext>`).
+- `meta` — your `meta` option resolved (entity/id, …).
+
+```js
+new HpvS3Target({
+  meta: { entity: 'invoice', id: 42 },
+  sign: async (file, { url, kind, meta }) => {
+    const r = await fetch('/api/s3-sign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: file.name, type: file.type, size: file.size, url, kind, meta }),
+    });
+    return r.json(); // backend picks the key, e.g. `${meta.entity}/${meta.id}/${kind}/<uuid>`
+  },
+});
+```
+Backward compatible: a `sign(file)` that ignores the 2nd arg still works.
 
 **Public URL** for the card: `publicUrl(file, signed)` → else `signed.publicUrl`
 → else derived (PUT: `url` minus query; POST: `url + '/' + fields.key`).
