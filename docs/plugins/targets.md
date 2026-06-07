@@ -13,7 +13,8 @@ A target implements `store(acq, ctx) => Promise<asset | null>` — see the
 No `setTarget` → files are kept in the gallery. `{ file }` gets a **tracked
 object URL** (preview/download), `{ url }` is stored by reference (no fetch). This
 is the core's `_localStore` — there is no class to import. To be explicit you can
-`setTarget(null)` to restore it.
+`setTarget(null)` to restore it. When `thumbnails` is on, `acq.thumb` also gets a
+tracked object URL → `thumbUrl` (so the card shows the small thumb).
 
 ## HpvXhrTarget
 
@@ -33,13 +34,16 @@ gallery.setTarget(new HpvXhrTarget({
 | `id` | `'xhr'` | target id |
 | `endpoint` | `'/upload'` | upload URL (`POST`) |
 | `fieldName` | `'file'` | multipart file field |
+| `thumbFieldName` | `'thumb'` | multipart field for the thumbnail |
 | `headers` | `{}` | extra request headers |
 | `withCredentials` | `false` | send cookies/credentials |
 | `timeout` | `60000` | per-request timeout (ms) |
 | `responseParser` | `null` | `(text, file) => url \| { url } \| { name, size, ext, url }`. Default: parse JSON → `url`/`location`, else the body if URL-like. |
 
 A `{ url }` acquisition (from the URL source) is fetched to bytes first
-(CORS-permitting). Failures throw → the core shows the message.
+(CORS-permitting). Failures throw → the core shows the message. When a thumbnail
+is present (`thumbnails` on), it's POSTed in a **second** request under
+`thumbFieldName` (file named `<name>.thumb.<ext>`) and returned as `thumbUrl`.
 
 ## HpvS3Target
 
@@ -76,3 +80,7 @@ gallery.setTarget(new HpvS3Target({
 **Public URL** for the card: `publicUrl(file, signed)` → else `signed.publicUrl`
 → else derived (PUT: `url` minus query; POST: `url + '/' + fields.key`).
 Configure the bucket's CORS to allow your origin + method/headers.
+
+When a thumbnail is present (`thumbnails` on), it's **signed and uploaded too**
+(file named `<name>.thumb.<ext>` — your backend gets a second `sign` call) and
+returned as `thumbUrl`.

@@ -420,6 +420,8 @@
 
 			const gallery = new HpvMixedGallery('media-library', {
 				maxItems: 12,
+				// client-side card thumbnails (original kept for the previewer/upload)
+				thumbnails: { maxWidth: 400, type: 'image/webp', quality: 0.8 },
 				items: [
 					// image assets carry a `url` so the previewer has something to show.
 					// Varied dimensions to exercise the cover-fit thumbnail + previewer.

@@ -51,6 +51,7 @@ the grid is then updated incrementally (insert/remove), never fully re-rendered.
 | `animate` | boolean | `true` | Master switch for micro-interactions. See [Animations](#animations). |
 | `confirmRemove` | boolean | `true` | Require an inline confirm before a card is deleted. |
 | `readOnly` | boolean | `false` | View-only mode — hide all mutation UI; item preview still works. See [Read-only mode](#read-only-mode). Toggle later with `setReadOnly()`. |
+| `thumbnails` | `false` \| object | `false` | Client-side card thumbnails: `{ maxWidth=400, type='image/webp', quality=0.8 }`. The core downscales each ingested image (via `createImageBitmap`, with fallback) and the card shows the thumb; the **original** stays in `url` and targets persist **both**. Off = the card uses the full image. |
 | `labels` | object | pt-BR | Shared user-facing copy. See [`labels`](#labels). Upload-method strings live in the plugins, not here. |
 | `onAdd` | function | `null` | `fn(gallery, asset)` after an asset is added. |
 | `onRemove` | function | `null` | `fn(gallery, id, asset)` after an asset is removed. |
@@ -99,7 +100,9 @@ plain object:
   name,  // string
   size,  // display string, e.g. '2.4 MB' (free-form; not bytes)
   ext,   // UPPERCASE extension, derived from name if not given (e.g. 'PDF')
-  url,   // optional: thumbnail/preview/download source
+  url,   // optional: the ORIGINAL — preview/download source
+  thumbUrl, // optional: small card thumbnail (when `thumbnails` is on); card
+            // shows thumbUrl||url, the previewer/download always uses url
 }
 ```
 

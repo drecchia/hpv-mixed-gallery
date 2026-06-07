@@ -46,6 +46,7 @@ The demo's instance is the global `gallery`; private `_`-methods are reachable f
 - `ingest` enforces the **gallery** limit (`maxItems`, overflow → `limitReached`) and the **per-file** size limit (`maxSizeMB` → `tooLarge` + `onReject`).
 - `addFiles(fileList)` is a thin wrapper: `ingest(files.map(f => ({ file: f })))`.
 - A **target** returns the asset to add; `ctx.objectUrl(blob)` creates a core-tracked object URL (used by `_localStore`; tracked in `_objectUrls`, revoked on remove/clear/destroy), `ctx.progress(msg)` shows a progress line. A target throws `Error(message)` on failure → core `showError`.
+- **Thumbnails (opt-in `thumbnails` option).** When on, ingest runs `_makeThumb(file)` (client-side downscale via `createImageBitmap`+canvas, `<img>` fallback; null for non-image/SVG/already-small/HEIC/error) and passes the thumb Blob as `acq.thumb` to the target. Both are persisted: the asset gets `url` (original) **and** `thumbUrl` (thumb); cards show `thumbUrl||url`, the previewer/download use `url`. Targets save both (local = 2 object URLs; xhr = 2 POSTs via `thumbFieldName`; s3 = 2 sign+upload). `_revokeOwnedUrl` revokes both.
 - `addAsset` has a hard `_isFull()` backstop; `_insertAsset` is the only place a card is created and is also used by `_loadItems` (which bypasses limits — initial items are caller-trusted).
 - Plugin-facing helpers: `ingest`, `addFiles`, `addAsset`, `isFull()`, `showError(msg)`/`clearError()`.
 Capacity is surfaced proactively: footer counter shows `n de max` and the root gets `.is-full` (amber counter + dimmed dropzone).

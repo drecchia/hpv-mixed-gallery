@@ -48,6 +48,7 @@ gallery (grid, delete, save, preview hooks) still works.
 | `animate`       | boolean  | `true`  | Micro-interactions; set `false` to disable. |
 | `confirmRemove` | boolean  | `true`  | Inline confirm before a card is deleted. |
 | `readOnly`      | boolean  | `false` | View-only: hide upload/delete/save UI; item preview still works. Toggle later with `setReadOnly()`. |
+| `thumbnails`    | `false`\|object | `false` | Client-side card thumbnails `{ maxWidth, type, quality }`. Card shows the thumb; original kept in `url` (preview/download); targets persist **both**. |
 | `labels`        | object   | pt-BR   | Shared copy — see below. Merged one level deep, so override individual keys. (Upload-method strings live in the plugins.) |
 | `onAdd`         | function | `null`  | `fn(component, asset)`                   |
 | `onRemove`      | function | `null`  | `fn(component, id, asset)`              |

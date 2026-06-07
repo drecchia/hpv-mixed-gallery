@@ -61,7 +61,9 @@ An **acquisition** is `{ file: File }` or `{ url, name?, ext? }`.
   id: string,
   // Persist ONE acquisition; resolve to the asset to add, or null to skip.
   // Throw an Error(message) on failure — the core surfaces it via showError.
-  store(acq, ctx): Promise<{ name, size?, ext?, url? } | null>,
+  // acq = { file } | { url, name?, ext? }, plus an optional acq.thumb (Blob)
+  // when `thumbnails` is on — persist it too and return thumbUrl.
+  store(acq, ctx): Promise<{ name, size?, ext?, url?, thumbUrl? } | null>,
 }
 ```
 
