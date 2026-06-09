@@ -8,6 +8,12 @@ A target implements `store(acq, ctx) => Promise<asset | null>` — see the
 [target contract](README.md#target-contract). The core enforces capacity + size
 **before** calling `store()`, so a target only persists and returns the asset.
 
+A returned asset may include `width`/`height` (the **original** image's pixel
+dimensions) and `meta` (any object, stored verbatim) — both are preserved into
+the [asset model](../core.md#the-asset-model). If the target omits `width`/`height`
+but `thumbnails` is on, the core fills them from its own measurement (target dims
+take precedence).
+
 ## Built-in local target (default)
 
 No `setTarget` → files are kept in the gallery. `{ file }` gets a **tracked
@@ -38,7 +44,7 @@ gallery.setTarget(new HpvXhrTarget({
 | `headers` | `{}` | extra request headers |
 | `withCredentials` | `false` | send cookies/credentials |
 | `timeout` | `60000` | per-request timeout (ms) |
-| `responseParser` | `null` | `(text, file) => url \| { url } \| { name, size, ext, url }`. Default: parse JSON → `url`/`location`, else the body if URL-like. |
+| `responseParser` | `null` | `(text, file) => url \| { url, name?, size?, ext?, width?, height?, meta? }`. Default: parse JSON and return the whole object (normalizing `location`→`url`) so `width`/`height`/`meta`/… survive; a non-JSON body is used verbatim if URL-like. |
 
 A `{ url }` acquisition (from the URL source) is fetched to bytes first
 (CORS-permitting). Failures throw → the core shows the message. When a thumbnail
@@ -67,7 +73,7 @@ gallery.setTarget(new HpvS3Target({
 | Option | Default | Notes |
 |--------|---------|-------|
 | `id` | `'s3'` | target id |
-| `sign` | `null` | `(file) => Promise<{ method?, url, fields?, headers?, publicUrl? }>` |
+| `sign` | `null` | `(file) => Promise<{ method?, url, fields?, headers?, publicUrl?, width?, height?, meta? }>` — `width`/`height`/`meta` in the **response** are copied onto the stored asset (distinct from the `meta` **option** below, which is sent *to* the backend) |
 | `signEndpoint` | `null` | alternative to `sign`: the target POSTs `{name,type,size}` and expects that JSON |
 | `signMethod` / `signHeaders` | `'POST'` / JSON | for `signEndpoint` |
 | `method` | `'PUT'` | upload method when the signer doesn't specify |

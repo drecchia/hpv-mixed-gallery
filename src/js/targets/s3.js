@@ -55,6 +55,10 @@ class HpvS3Target {
 			ext: this._ext(file.name),
 			url: this._publicUrl(file, signed) || undefined,
 			thumbUrl: thumbUrl,
+			// forwarded from the signed response when the backend provides them
+			width: signed.width || undefined,
+			height: signed.height || undefined,
+			meta: signed.meta || undefined,
 		};
 	}
 

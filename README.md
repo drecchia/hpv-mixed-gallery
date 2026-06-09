@@ -78,7 +78,7 @@ new HpvMixedGallery('id', {
 ## Public API
 
 `ingest(acquisitions)` (the chokepoint, used by sources) · `addFiles(fileList)` ·
-`addAsset({name, size, ext, url?})` → id · `removeAsset(id)` · `getAssets()` ·
+`addAsset({name, size, ext, url?, thumbUrl?, width?, height?, meta?})` → id · `removeAsset(id)` · `getAssets()` ·
 `getImages()` (image-type only) · `getCount()` · `isFull()` · `clear()` ·
 `showError(msg)` / `clearError()` · `openUpload()` / `closeUpload()` / `toggleUpload()` ·
 `registerSource(source)` / `unregisterSource(source)` · `setTarget(target)` ·

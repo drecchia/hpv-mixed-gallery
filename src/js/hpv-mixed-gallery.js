@@ -409,6 +409,14 @@ class HpvMixedGallery {
 		};
 		if (asset.url) stored.url = asset.url + ''; // optional preview source
 		if (asset.thumbUrl) stored.thumbUrl = asset.thumbUrl + ''; // small card thumb
+		// optional pixel dimensions of the ORIGINAL image (the only dims we model)
+		if (Number.isFinite(+asset.width) && Number.isFinite(+asset.height)) {
+			stored.width = +asset.width;
+			stored.height = +asset.height;
+		}
+		// opaque caller/target metadata, stored verbatim (never read by the core)
+		if (asset.meta && typeof asset.meta === 'object')
+			stored.meta = { ...asset.meta };
 		this.items.set(id, stored);
 		// newest-first: user-added cards go to the top; initial items keep order
 		this._grid.insertAdjacentHTML(
@@ -523,8 +531,13 @@ class HpvMixedGallery {
 		if (this._isImage(a.ext)) {
 			// card uses the small thumb when present; the previewer uses the full url
 			const src = a.thumbUrl || a.url;
+			// intrinsic dims (original aspect ratio) when known — minor CLS hint
+			const dim =
+				a.width && a.height
+					? ` width="${a.width}" height="${a.height}"`
+					: '';
 			const inner = src
-				? `<img class="mg-thumb" src="${this._escape(src)}" alt="${this._escape(a.name)}" loading="lazy" draggable="false">`
+				? `<img class="mg-thumb" src="${this._escape(src)}" alt="${this._escape(a.name)}"${dim} loading="lazy" draggable="false">`
 				: `<i class="fa-regular fa-image mg-img-icon"></i>`;
 			return `<div class="mini-view mg-img-view" ${attrs}>${inner}</div>`;
 		}
@@ -636,16 +649,29 @@ class HpvMixedGallery {
 			try {
 				let a = acq;
 				// generate a card thumbnail (when enabled) and pass it to the
-				// target so both the original and the thumb get persisted
+				// target so both the original and the thumb get persisted;
+				// also capture the original's measured dimensions
+				let measured = null;
 				if (a.file && this._thumbCfg) {
-					const thumb = await this._makeThumb(a.file);
-					if (thumb) a = { ...a, thumb };
+					const t = await this._makeThumb(a.file);
+					if (t) {
+						if (t.blob) a = { ...a, thumb: t.blob };
+						if (t.width)
+							measured = { width: t.width, height: t.height };
+					}
 				}
 				const store = this._target
 					? this._target.store.bind(this._target)
 					: this._localStore.bind(this);
 				const asset = await store(a, ctx);
-				if (asset) this.addAsset(asset);
+				if (asset) {
+					// target dims win; fall back to core-measured dims
+					if (measured && asset.width == null) {
+						asset.width = measured.width;
+						asset.height = measured.height;
+					}
+					this.addAsset(asset);
+				}
 			} catch (err) {
 				this._showUploadError(
 					(err && err.message) || 'Falha no upload.',
@@ -707,9 +733,11 @@ class HpvMixedGallery {
 		};
 	}
 
-	// Generate a downscaled thumbnail Blob for an image file, client-side.
-	// Returns null for non-images/SVG, already-small images, HEIC/decode
-	// failures, or any error — callers then fall back to the original.
+	// Measure + (optionally) downscale an image file, client-side.
+	// Returns { blob, width, height } where width/height are the ORIGINAL source
+	// dimensions and blob is the downscaled thumbnail (or null when the image is
+	// already small enough — dims are still reported). Returns null entirely for
+	// non-images/SVG, HEIC/decode failures, or any error.
 	async _makeThumb(file) {
 		const cfg = this._thumbCfg;
 		if (!cfg) return null;
@@ -717,14 +745,16 @@ class HpvMixedGallery {
 		if (!/^image\//.test(type) || type === 'image/svg+xml') return null;
 		const maxW = cfg.maxWidth;
 		try {
-			let canvas, w, h;
+			let canvas, w, h, sw, sh;
 			if (typeof createImageBitmap === 'function') {
 				const bmp = await createImageBitmap(file, {
 					imageOrientation: 'from-image',
 				});
+				sw = bmp.width;
+				sh = bmp.height;
 				if (bmp.width <= maxW) {
 					if (bmp.close) bmp.close();
-					return null; // already small enough
+					return { blob: null, width: sw, height: sh }; // already small
 				}
 				w = maxW;
 				h = Math.round((bmp.height * maxW) / bmp.width);
@@ -743,7 +773,10 @@ class HpvMixedGallery {
 						i.onerror = rej;
 						i.src = url;
 					});
-					if (img.naturalWidth <= maxW) return null;
+					sw = img.naturalWidth;
+					sh = img.naturalHeight;
+					if (img.naturalWidth <= maxW)
+						return { blob: null, width: sw, height: sh };
 					w = maxW;
 					h = Math.round(
 						(img.naturalHeight * maxW) / img.naturalWidth,
@@ -763,7 +796,7 @@ class HpvMixedGallery {
 				blob = await new Promise((res) =>
 					canvas.toBlob(res, 'image/jpeg', cfg.quality),
 				);
-			return blob || null;
+			return { blob: blob || null, width: sw, height: sh };
 		} catch (e) {
 			this.debug('warn', 'thumbnail generation failed', e);
 			return null;

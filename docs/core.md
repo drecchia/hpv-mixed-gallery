@@ -104,8 +104,23 @@ plain object:
   url,   // optional: the ORIGINAL — preview/download source
   thumbUrl, // optional: small card thumbnail (when `thumbnails` is on); card
             // shows thumbUrl||url, the previewer/download always uses url
+  width,  // optional: ORIGINAL image pixel width  (number)
+  height, // optional: ORIGINAL image pixel height (number)
+  meta,   // optional: opaque caller/target object, stored verbatim
 }
 ```
+
+`width`/`height` are the **only** dimension fields and always describe the
+**original** (`url`) image — thumbnail dims are never stored (the thumb is a
+proportional downscale, so it shares the original's aspect ratio). They are
+populated automatically when `thumbnails` is enabled (the core measures the image
+while generating the thumb) or supplied by a target/caller; a target's dims win
+over the core-measured ones. With `thumbnails` off and no target supplying them,
+assets simply have no `width`/`height`.
+
+`meta` is an **opaque passthrough** — the core never reads it and never writes
+dimension data into it. It is shallow-cloned on store (nested objects shared) and
+round-trips through `getAssets()`/`onSave` and initial `items`.
 
 `url` sources:
 - **Uploaded files** (via `addFiles`) get an `object URL` created by the core,

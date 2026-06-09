@@ -45,6 +45,9 @@ class HpvXhrTarget {
 			ext: (parsed && parsed.ext) || this._ext(file.name),
 			url: url || undefined,
 			thumbUrl: thumbUrl || undefined,
+			width: (parsed && parsed.width) || undefined,
+			height: (parsed && parsed.height) || undefined,
+			meta: (parsed && parsed.meta) || undefined,
 		};
 	}
 
@@ -100,7 +103,8 @@ class HpvXhrTarget {
 			return this.options.responseParser(text, file);
 		try {
 			const j = JSON.parse(text);
-			return j.url || j.location || {};
+			if (j.location && !j.url) j.url = j.location;
+			return j; // full object so width/height/meta/name/… survive
 		} catch (e) {
 			return /^https?:|^\//.test((text || '').trim()) ? text.trim() : {};
 		}
