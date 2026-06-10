@@ -1,23 +1,99 @@
 # hpv-mixed-gallery
 
-Mixed media (documents + images) upload gallery, vanilla-JS. Progressive-disclosure
-upload panel with **pluggable upload methods** (local file + camera ship as
-plugins, registered like hpv-mini-gallery), a type-aware card grid, an empty
-state, and a footer counter + save action.
+> A vanilla-JS **mixed-media upload gallery** — documents *and* images — with a
+> progressive-disclosure upload panel, a type-aware card grid, and pluggable
+> upload **sources** and storage **targets**.
 
-**Full documentation:** [`docs/`](docs/README.md) — split into
-[core](docs/core.md) and [plugins](docs/plugins/README.md) (one doc per plugin).
+![vanilla JS](https://img.shields.io/badge/vanilla-JS-f7df1e?logo=javascript&logoColor=000)
+![build](https://img.shields.io/badge/build-none-2ea44f)
+![module system](https://img.shields.io/badge/modules-none%20(script%20tags)-informational)
+![deps](https://img.shields.io/badge/peer%20deps-Bulma%201.0%20%2B%20FontAwesome%206-1d72b8)
+
+No build step. No `package.json`. No bundler. No framework. Drop in a `<script>`
+tag and a `<div>`, and you have a working upload gallery whose styles are fully
+scoped under `.hpv-mixed-gallery`.
+
+**📚 Full documentation:** [`docs/`](docs/README.md) ·
+[Core](docs/core.md) · [Sources & Targets](docs/plugins/README.md) ·
+[Design rationale](docs/proposals/source-target.md)
+
+---
+
+## Contents
+
+- [Why](#why) · [Features](#features) · [Demo](#demo)
+- [Dependencies](#dependencies) · [Quick start](#quick-start)
+- [Core idea: sources × targets](#core-idea-sources--targets) · [Recipes](#recipes)
+- [Options](#options) · [Asset model](#asset-model) · [Public API](#public-api)
+- [Sources](#sources) · [Targets](#targets)
+- [Read-only mode](#read-only-mode) · [Item click & previewer](#item-click--previewer)
+- [Documentation map](#documentation-map) · [Behavior notes](#behavior-notes)
+
+---
+
+## Why
+
+Most upload widgets hard-wire *where files come from* to *where they're stored*.
+`hpv-mixed-gallery` splits those into two composable axes:
+
+- **Sources** — *where bytes come from* (the tabs): local picker, webcam,
+  clipboard paste, Uppy, phone-over-QR…
+- **Targets** — *where bytes go* (config, not a tab): keep them in-page, `POST`
+  to your server, or sign-and-PUT straight to S3.
+
+**Any source composes with any target.** Add a webcam tab without touching your
+upload code; switch from local storage to S3 without touching your tabs.
+
+## Features
+
+- 🧩 **Pluggable sources & targets** — mix and match; write your own against a
+  tiny contract. ([guide](docs/plugins/README.md#write-your-own))
+- 🖼️ **Type-aware grid** — real `<img>` thumbnails for images, format badges for
+  PDFs / spreadsheets / other files.
+- ⚡ **Client-side thumbnails** — opt-in downscaling keeps the original for
+  preview/download while cards render a small thumb. ([thumbnails](docs/core.md#the-asset-model))
+- 📐 **Rich asset model** — first-class `width`/`height` + an opaque `meta`
+  passthrough that round-trips through `getAssets()`/`onSave`.
+- 🔒 **Read-only mode** — lock the UI for viewers while the programmatic API
+  stays live.
+- 🎚️ **Capacity & size limits** — proactive counter, full-state UX, calm inline
+  rejection messages (no `alert()`).
+- ♿ **Accessible & animated** — keyboard-operable cards, `role="button"` +
+  Enter/Space, motion gated by `prefers-reduced-motion`.
+- 🌍 **Fully localizable** — every visible string lives in `options.labels`
+  (pt-BR defaults).
+- 🪶 **Zero-build, scoped CSS** — one `.js`, one `.css`, plug-in sources/targets
+  as separate files.
+
+## Demo
+
+Open [`index.html`](index.html) in a browser — a runnable demo that registers
+every source, wires a destination picker (`setTarget`), enables thumbnails, and
+hooks an image previewer + PDF overlay.
+
+```bash
+# any static server works; or just open the file
+python3 -m http.server   # then visit http://localhost:8000
+```
 
 ## Dependencies
 
-Host page must load **Bulma 1.0.x** (layout/buttons) and **FontAwesome 6** (icons).
-See `index.html` for the CDN tags. The component ships its own scoped CSS.
+The host page must provide two peer libraries (the component ships neither):
 
-## Usage
+| Library | Use | 
+| --- | --- |
+| **Bulma 1.0.x** | layout, buttons |
+| **FontAwesome 6** | icons |
+
+See [`index.html`](index.html) for the exact CDN tags. The component's own CSS is
+self-contained and scoped under `.hpv-mixed-gallery`.
+
+## Quick start
 
 ```html
 <link rel="stylesheet" href="src/css/hpv-mixed-gallery.css">
 <div id="media-library"></div>
+
 <script src="src/js/hpv-mixed-gallery.js"></script>
 <script src="src/js/sources/local.js"></script>
 <script src="src/js/sources/camera.js"></script>
@@ -27,47 +103,199 @@ See `index.html` for the CDN tags. The component ships its own scoped CSS.
     onSave: (c, assets) => console.log(assets),
   });
 
-  // SOURCES are the tabs (first registered = active). The TARGET is where bytes
-  // go — default keeps them in the gallery; setTarget to upload elsewhere.
+  // SOURCES are the tabs (first registered = active tab).
   gallery.registerSource(new HpvLocalSource());
   gallery.registerSource(new HpvCameraSource());
+
+  // TARGET is where bytes are stored. Default = keep them in the gallery.
   // gallery.setTarget(new HpvS3Target({ sign }));   // e.g. upload everything to S3
 </script>
 ```
 
-Without any registered source the upload panel has no tabs; the rest of the
-gallery (grid, delete, save, preview hooks) still works.
+Without any registered source the upload panel simply has no tabs — the rest of
+the gallery (grid, delete, save, preview hooks, programmatic API) still works.
+
+## Core idea: sources × targets
+
+```
+        SOURCES  (the tabs — where bytes come from)
+   ┌─────────┬─────────┬───────────┬──────────┬───────┐
+   │  Local  │ Camera  │ Clipboard │  Uppy    │ W2WS  │
+   └────┬────┴────┬────┴─────┬─────┴────┬─────┴───┬───┘
+        └─────────┴──────────┼──────────┴─────────┘
+                             ▼
+                    gallery.ingest(acquisitions)     ← one chokepoint:
+                             │                          limits, size checks,
+                             ▼                          thumbnails, object-URLs
+                    TARGET.store(acq, ctx)            ← where bytes go
+   ┌────────────────┬──────────────────┬────────────────────────┐
+   │ built-in local │  HpvXhrTarget    │     HpvS3Target         │
+   │ (object URLs)  │  (multipart POST)│  (signed direct→S3)     │
+   └────────────────┴──────────────────┴────────────────────────┘
+```
+
+Sources acquire bytes and hand them to the **single ingest chokepoint**; the core
+enforces limits and lifecycle, then routes each acquisition through the active
+target. This keeps every source/target combination behaving consistently. Full
+contracts: [docs/plugins/README.md](docs/plugins/README.md).
+
+## Recipes
+
+Small, copy-pasteable snippets that show what the options unlock.
+
+### Thumbnails + S3 + a round-tripping `meta` bag
+
+Enable client-side thumbnails, store everything on S3, and carry your own backend
+metadata through to `onSave` — untouched by the core.
+
+```js
+const gallery = new HpvMixedGallery('media-library', {
+  thumbnails: { maxWidth: 400, type: 'image/webp', quality: 0.8 },
+  onSave: (c, assets) => {
+    // each image asset now carries first-class dims + your meta
+    assets.forEach(a => console.log(a.name, `${a.width}×${a.height}`, a.meta));
+    return fetch('/api/save', { method: 'POST', body: JSON.stringify(assets) });
+  },
+});
+
+gallery.registerSource(new HpvLocalSource());
+gallery.setTarget(new HpvS3Target({
+  meta: { entity: 'invoice', id: 42 },              // sent to your signer
+  sign: async (file, { kind, meta }) => {
+    const r = await fetch('/api/s3-sign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: file.name, type: file.type, kind, meta }),
+    });
+    // anything extra you return rides along on the asset, verbatim:
+    return r.json();   // { method:'PUT', url, publicUrl, width, height, meta:{ uploadedAt } }
+  },
+}));
+```
+
+### Fully localize every string
+
+`labels` is merged one level deep, so override just the keys you want — including
+the functional ones.
+
+```js
+new HpvMixedGallery('id', {
+  labels: {
+    title: 'Files & Images',
+    subtitle: 'Drop files or pick a source',
+    saveButton: 'Save',
+    emptyTitle: 'Nothing here yet',
+    counter: (n, max) => max ? `${n} of ${max}` : `${n} item${n === 1 ? '' : 's'}`,
+    tooLarge: (name, limitMB) => `“${name}” exceeds the ${limitMB} MB limit.`,
+    limitReached: (max, rejected) => `Full at ${max}. Skipped ${rejected}.`,
+  },
+});
+```
+
+### Hard caps with custom rejection UX
+
+Cap count and size, and react to every rejection.
+
+```js
+new HpvMixedGallery('id', {
+  maxItems: 10,
+  maxSizeMB: 5,
+  onReject: (c, file, reason) => {
+    if (reason === 'too-large') toast(`${file.name} is over 5 MB`);
+  },
+  onAdd:    (c, a) => analytics('upload', a.ext),
+  onRemove: (c, id, a) => analytics('remove', a.ext),
+});
+// footer counter shows "3 de 10" and turns amber at the ceiling automatically.
+```
+
+### Permission-gated, read-only by default
+
+Lock the UI for viewers; flip it on when the user can edit. The programmatic API
+keeps working either way.
+
+```js
+const gallery = new HpvMixedGallery('id', { readOnly: !user.canEdit });
+editButton.onclick = () => gallery.setReadOnly(false);
+
+// still works while read-only — UI affordances are hidden, not the data layer:
+gallery.addAsset({ name: 'seed.pdf', ext: 'PDF', url: '/files/seed.pdf' });
+```
+
+### Custom card content with `renderItem`
+
+Override the inner content while the core keeps the column wrapper, click handler,
+and delete animations.
+
+```js
+new HpvMixedGallery('id', {
+  renderItem: (a, { escape, preview, actions }) => `
+    ${preview(a)}
+    <div class="my-card-body">
+      <strong>${escape(a.name)}</strong>
+      <span class="tag">${a.ext}</span>
+      ${a.width ? `<small>${a.width}×${a.height}</small>` : ''}
+    </div>
+    ${actions(a)}
+  `,
+});
+```
+
+### Wire a previewer on click
+
+The component ships no previewer — branch on `asset.ext` and open whatever you like.
+
+```js
+new HpvMixedGallery('id', {
+  onItemClick: (c, asset) => {
+    if (c.getImages().some(a => a.id === asset.id)) {
+      const imgs = c.getImages().filter(a => a.url).map(a => ({ url: a.url, alt: a.name }));
+      const i = imgs.findIndex(a => a.alt === asset.name);
+      HpvImagePreviewer.showGallery(imgs, Math.max(0, i));
+    } else if (asset.ext === 'PDF') {
+      openPdfOverlay(asset.url);
+    }
+  },
+});
+```
+
+### Many sources, one target
+
+Give users five ways to add files; store them identically.
+
+```js
+// first registered wins the active tab; all of them feed the same target
+gallery.registerSource(new HpvLocalSource({ label: 'My device' }));
+gallery.registerSource(new HpvCameraSource());
+gallery.registerSource(new HpvClipboardSource());
+gallery.setTarget(new HpvXhrTarget({ endpoint: '/upload', withCredentials: true }));
+```
 
 ## Options
 
-| Option          | Type     | Default | Notes                                   |
-| --------------- | -------- | ------- | --------------------------------------- |
-| `items`         | array    | `[]`    | Initial assets `{ name, size, ext }` (optional `url` for previewing). |
-| `maxSizeMB`     | number   | `15`    | Reject files larger than this; `0`/`null` = no limit. |
-| `maxItems`      | number   | `0`     | Max assets the gallery can hold; `0` = unlimited.     |
-| `animate`       | boolean  | `true`  | Micro-interactions; set `false` to disable. |
-| `confirmRemove` | boolean  | `true`  | Inline confirm before a card is deleted. |
-| `readOnly`      | boolean  | `false` | View-only: hide upload/delete/save UI; item preview still works. Toggle later with `setReadOnly()`. |
-| `thumbnails`    | `false`\|object | `false` | Client-side card thumbnails `{ maxWidth, type, quality }`. Card shows the thumb; original kept in `url` (preview/download); targets persist **both**. |
-| `labels`        | object   | pt-BR   | Shared copy — see below. Merged one level deep, so override individual keys. (Upload-method strings live in the plugins.) |
-| `onAdd`         | function | `null`  | `fn(component, asset)`                   |
-| `onRemove`      | function | `null`  | `fn(component, id, asset)`              |
-| `onReject`      | function | `null`  | `fn(component, file, reason)` — e.g. `'too-large'`. |
-| `onItemClick`   | function | `null`  | `fn(component, asset, id)` — fired when any card is clicked; branch on `asset.ext`. |
-| `renderItem`    | function | `null`  | `fn(asset, helpers) => html` — override the card's inner content. `helpers`: `escape`, `preview(asset)`, `actions(asset)`, `labels`. Core keeps the column wrapper (data-id + animations); reuse `helpers.preview`/`actions` to keep click + delete working. |
-| `onSave`        | function | `null`  | `fn(component, assets)`                  |
-| `onCreate`      | function | `null`  | `fn(component)`                          |
-| `isDebug`       | boolean  | `false` | Routes `debug()` to `console`.          |
+Most-used options below; see [docs/core.md → Options](docs/core.md#options) for
+the complete reference.
+
+| Option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `items` | array | `[]` | Initial assets `{ name, size, ext }` (optional `url` to preview). |
+| `maxSizeMB` | number | `15` | Reject larger files; `0`/`null` = no limit. |
+| `maxItems` | number | `0` | Capacity; `0` = unlimited. |
+| `thumbnails` | `false`\|object | `false` | Client-side card thumbs `{ maxWidth, type, quality }`. Card shows the thumb; `url` keeps the original; targets persist **both**. |
+| `readOnly` | boolean | `false` | View-only UI; toggle later with `setReadOnly()`. |
+| `confirmRemove` | boolean | `true` | Inline confirm before deleting a card. |
+| `animate` | boolean | `true` | Micro-interactions (respects `prefers-reduced-motion`). |
+| `labels` | object | pt-BR | All visible copy; merged one level deep — override single keys. |
+| `renderItem` | function | `null` | `fn(asset, helpers) => html` — override a card's inner content. |
+| `onAdd` / `onRemove` / `onReject` / `onItemClick` / `onSave` / `onCreate` | function | `null` | Lifecycle callbacks — see [docs](docs/core.md#callbacks). |
+| `isDebug` | boolean | `false` | Routes `debug()` to `console`. |
 
 ### `labels`
 
-Shared copy (pt-BR defaults). Strings: `title`, `subtitle`, `addButton`,
-`closeButton`, `sourceLabel`, `sectionTitle`, `emptyTitle`, `emptyText`,
-`emptyButton`, `saveButton`, `removeTitle`, `confirmRemoveTitle`, `cancelTitle`.
-Functions: `counter(n, max)` → string (`max` is `0` when no `maxItems` limit),
-`tooLarge(name, limitMB, sizeText)` → string, `galleryFull(max)` → string,
-`limitReached(max, rejected)` → string. Upload-method copy (tab label, dropzone
-title/hint) is configured on the **plugins** instead — see below.
+Every user-facing string is overridable. Strings include `title`, `subtitle`,
+`addButton`, `saveButton`, `emptyTitle`, … ; functions include `counter(n, max)`,
+`tooLarge(name, limitMB, sizeText)`, `galleryFull(max)`,
+`limitReached(max, rejected)`. Upload-method copy (tab label, dropzone text)
+lives on the **source plugins**. Full list: [docs/core.md → labels](docs/core.md#labels).
 
 ```js
 new HpvMixedGallery('id', {
@@ -75,114 +303,142 @@ new HpvMixedGallery('id', {
 });
 ```
 
+## Asset model
+
+Each stored asset is a plain object:
+
+```js
+{
+  id,        // 'asset-N' (assigned by the core)
+  name, size, ext,
+  url,       // optional: the ORIGINAL — preview/download source
+  thumbUrl,  // optional: small card thumbnail (when `thumbnails` is on)
+  width, height,  // optional: ORIGINAL image pixel dims (the only dims modeled)
+  meta,      // optional: opaque object, stored verbatim — yours to round-trip
+}
+```
+
+`width`/`height` are auto-measured when `thumbnails` is enabled, or supplied by a
+target/caller (a target's dims win). `meta` is never read by the core — a
+passthrough bag for backend data (`uploadedAt`, entity ids, mime…) that survives
+`getAssets()`/`onSave` and initial `items`. Details:
+[docs/core.md → The asset model](docs/core.md#the-asset-model).
+
 ## Public API
 
-`ingest(acquisitions)` (the chokepoint, used by sources) · `addFiles(fileList)` ·
-`addAsset({name, size, ext, url?, thumbUrl?, width?, height?, meta?})` → id · `removeAsset(id)` · `getAssets()` ·
-`getImages()` (image-type only) · `getCount()` · `isFull()` · `clear()` ·
-`showError(msg)` / `clearError()` · `openUpload()` / `closeUpload()` / `toggleUpload()` ·
-`registerSource(source)` / `unregisterSource(source)` · `setTarget(target)` ·
-`setMethod(sourceId)` · `setReadOnly(bool)` · `destroy()`
-(`registerUploadPlugin` / `unregisterUploadPlugin` remain as deprecated aliases.)
+```text
+ingest(acquisitions)            addFiles(fileList)
+addAsset({name, size, ext, url?, thumbUrl?, width?, height?, meta?}) → id
+removeAsset(id)   getAssets()   getImages()   getCount()   isFull()   clear()
+showError(msg)    clearError()
+openUpload()      closeUpload() toggleUpload()
+registerSource(s) unregisterSource(s)   setTarget(t)   setMethod(id)
+setReadOnly(bool) destroy()
+```
 
-**Read-only mode** — for viewers without edit access. `new HpvMixedGallery(id, { readOnly: true })`
-or `gallery.setReadOnly(true)` later. It hides the upload toggle + panel, per-card
-delete, the save button, and the empty-state add button, and blocks UI-driven
-mutations; item click (preview/download) still works, and the programmatic API
-(`addAsset`/`removeAsset`/`ingest`/…) is unaffected.
+`registerUploadPlugin` / `unregisterUploadPlugin` remain as deprecated aliases of
+`registerSource` / `unregisterSource`. Full reference:
+[docs/core.md → Public API](docs/core.md#public-api).
 
-## Sources & Targets
+## Sources
 
-Uploading is split into two composable concerns. **Sources** are *where bytes come
-from* (the tabs); **targets** are *where they're stored* (config, not a tab). Any
-source composes with any target. Full guide: [docs/plugins/README.md](docs/plugins/README.md).
+Register with `registerSource` (first registered = active tab). Files live in
+`src/js/sources/`. Full guide: [docs/plugins/sources.md](docs/plugins/sources.md).
 
-**Sources** (`src/js/sources/`, register with `registerSource`; first = active tab):
+| Source | File | What it does |
+| --- | --- | --- |
+| **`HpvLocalSource`** | `local.js` | File picker + drag-and-drop. |
+| **`HpvCameraSource`** | `camera.js` | Real WebRTC preview → capture JPEG. Needs HTTPS/localhost. |
+| **`HpvClipboardSource`** | `clipboard.js` | Paste an image (Ctrl/Cmd+V) or a copied http(s) URL. Zero-dependency. |
+| **`HpvUppySource`** | `uppy.js` | Inline Uppy Dashboard (needs the Uppy bundle + CSS). |
+| **`HpvW2wsSource`** | `w2ws.js` | node-w2ws QR→WebSocket bridge: phone streams files (chunked, resumable). |
 
-- **`HpvLocalSource`** (`local.js`) — file picker + drag-and-drop. Options: `id`,
-  `label`, `title`, `hint`, `accept`, `multiple`.
-- **`HpvCameraSource`** (`camera.js`) — **real WebRTC**: live preview, capture →
-  JPEG → `addFiles`. Needs HTTPS/localhost. Options: `id`, `label`, `idleText`,
-  `captureLabel`, `flipLabel`, `quality`, `maxWidth`, `facingMode`, `fileName`.
-- **`HpvUppySource`** (`uppy.js`) — inline **Uppy Dashboard** (needs the Uppy
-  bundle + CSS). Options: `id`, `label`, `height`, `note`, `uppyOptions`,
-  `dashboardOptions`.
-- **`HpvClipboardSource`** (`clipboard.js`) — **paste** an image with Ctrl/Cmd+V
-  or a button (async Clipboard API); a copied http(s) URL becomes a reference.
-  Options: `id`, `label`, `title`, `hint`, `pickLabel`, `emptyText`, `deniedText`.
-  Zero-dependency.
-- **`HpvW2wsSource`** (`w2ws.js`) — **node-w2ws** bridge: a QR opens the bridge's
-  mobile uploader; the phone streams files (chunked, checksum-verified, resumable)
-  over a relayed WebSocket. Thin wrapper around the bridge's `W2WSConsumer` client
-  (vendored at `src/vendor/w2ws-consumer.js`). Options: `id`, `label`, `url`
-  (`wss://host/ws`, required), `opts` (else derived from the gallery limits), UI
-  copy. Needs the bridge running.
+## Targets
 
-**Targets** (`src/js/targets/`, set one with `setTarget`):
+Set one with `setTarget` (default keeps bytes in the gallery). Files live in
+`src/js/targets/`. Full guide: [docs/plugins/targets.md](docs/plugins/targets.md).
 
-- **built-in local** (default; no `setTarget`) — keep in the gallery: files get a
-  tracked object URL, URLs are kept by reference.
-- **`HpvXhrTarget`** (`xhr.js`) — multipart `POST` per file with progress. Options:
-  `id`, `endpoint`, `fieldName`, `headers`, `withCredentials`, `timeout`,
-  `responseParser`.
-- **`HpvS3Target`** (`s3.js`) — direct browser→S3 signed upload (PUT/POST); browser
-  holds no AWS keys. Options: `sign(file, ctx)` **or** `signEndpoint` (+ `signMethod`,
-  `signHeaders`), `method`, `fieldName`, `headers`, `withCredentials`, `timeout`,
-  `publicUrl(file, signed)`, `meta`. `sign` gets a context `{ url, kind, meta }`
-  (current page URL, `'original'`/`'thumbnail'`, your `meta` object) — and the same
-  fields go in the `signEndpoint` body — so the backend can choose the object key.
+| Target | File | What it does |
+| --- | --- | --- |
+| **built-in local** | — | Default. Files get a tracked object URL; URLs kept by reference. |
+| **`HpvXhrTarget`** | `xhr.js` | Multipart `POST` per file, with progress. Backend `width`/`height`/`meta` in the JSON response flow onto the asset. |
+| **`HpvS3Target`** | `s3.js` | Direct browser→S3 signed upload (PUT/POST). Browser holds no AWS keys; your backend signs each request. |
 
 ```js
 // any source → S3: register sources, set the S3 target once
-gallery.registerSource(new HpvLocalSource());
-gallery.registerSource(new HpvCameraSource());
 gallery.setTarget(new HpvS3Target({
-  sign: async (file) => {
+  sign: async (file, { url, kind, meta }) => {
     const r = await fetch('/api/s3-sign', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: file.name, type: file.type, size: file.size }),
+      body: JSON.stringify({ name: file.name, type: file.type, size: file.size, url, kind, meta }),
     });
     return r.json(); // { method:'PUT', url, publicUrl } | { method:'POST', url, fields }
   },
 }));
 ```
 
-**Contracts.** A **source** is `{ id, options.label, init(gallery),
-renderArea(gallery)→html, destroy(), onShow?, onHide? }` and acquires bytes/urls
-then calls `gallery.ingest([{ file } | { url }])`. A **target** is
-`{ id, store(acq, ctx) => Promise<asset|null> }`; `ctx.objectUrl(blob)` makes a
-core-tracked URL and `ctx.progress(msg)` shows a progress line. The core owns
-limits, object-URL lifecycle, and error messaging. `registerUploadPlugin` is a
-deprecated alias of `registerSource` (a combo plugin = a source that stores its
-own bytes). See [docs/plugins/](docs/plugins/README.md) for a write-your-own walkthrough.
+**Contracts (in brief).** A **source** is
+`{ id, options.label, init(gallery), renderArea(gallery)→html, destroy(), onShow?, onHide? }`
+and calls `gallery.ingest([{ file } | { url }])`. A **target** is
+`{ id, store(acq, ctx) => Promise<asset|null> }`, with `ctx.objectUrl(blob)` for a
+core-tracked URL and `ctx.progress(msg)` for a progress line. The core owns
+limits, object-URL lifecycle, and error messaging. Write-your-own walkthrough:
+[docs/plugins/README.md → Write your own](docs/plugins/README.md#write-your-own).
 
-### Item click / previewer
+## Read-only mode
 
-Every card is clickable and fires `onItemClick(component, asset, id)`. Branch on
-`asset.ext` to decide what a click does (preview an image, open a PDF, …). The
-component ships **no** previewer — wire one in the host page. `getImages()`
-returns the image assets so you can open a gallery lightbox. `index.html`
-demonstrates the pattern: image items open `HpvImagePreviewer.showGallery(images, index)`.
+For viewers without edit access:
 
-Each image asset has a `url`: uploaded image files get an object URL
-automatically (created on add, revoked on remove/`clear()`/`destroy()` — the
-component only revokes URLs it created, never caller-supplied ones), and
-initial `items` may supply their own `url`.
+```js
+new HpvMixedGallery(id, { readOnly: true });
+// or later:
+gallery.setReadOnly(true);
+```
 
-## Behavior notes vs. the prototype
+Hides the upload toggle + panel, per-card delete, the save button, and the
+empty-state add button, and blocks UI-driven mutations. Item click
+(preview/download) still works, and the programmatic API
+(`addAsset`/`removeAsset`/`ingest`/…) is unaffected.
 
-- File picker accepts **multiple** files; selecting the same file twice works
-  (input is reset after each change).
-- The dropzone's advertised drag-and-drop is wired up (the prototype only
-  showed the affordance).
+## Item click & previewer
+
+Every card is clickable and fires `onItemClick(component, asset, id)` — branch on
+`asset.ext` to decide what a click does. The component ships **no** previewer;
+wire one in the host page. `getImages()` returns image assets for a lightbox.
+[`index.html`](index.html) demonstrates opening images in
+`HpvImagePreviewer.showGallery(images, index)` and PDFs in an EmbedPDF overlay.
+
+Uploaded image files get an object URL automatically (created on add, revoked on
+remove/`clear()`/`destroy()` — the component only revokes URLs it created, never
+caller-supplied ones); initial `items` may carry their own `url`.
+
+## Documentation map
+
+| Doc | Covers |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Documentation hub + 60-second start |
+| [docs/core.md](docs/core.md) | The `HpvMixedGallery` class: options, asset model, API, a11y, events |
+| [docs/plugins/README.md](docs/plugins/README.md) | The source/target system + contracts + write-your-own |
+| [docs/plugins/sources.md](docs/plugins/sources.md) | Every shipped source, option by option |
+| [docs/plugins/targets.md](docs/plugins/targets.md) | Every shipped target, option by option |
+| [docs/proposals/source-target.md](docs/proposals/source-target.md) | Why uploads are split into sources + targets |
+
+## Behavior notes
+
+- File picker accepts **multiple** files; re-selecting the same file works (input
+  resets after each change).
 - Filenames are HTML-escaped before rendering.
-- `Salvar` fires `onSave` instead of the prototype's `alert()`.
-- Oversized files are rejected (default 15 MB) with a calm inline message
-  under the dropzone — no `alert()`. The local plugin's `hint` text is
-  independent, so keep it in sync with `maxSizeMB` if you change the limit.
-- Deleting a card asks for confirmation in place: the trash icon morphs into
-  ✓ / ✕; only one card can be armed at a time and it auto-cancels after ~4 s.
+- Oversized files are rejected (default 15 MB) with a calm inline message under
+  the dropzone — no `alert()`. Keep the local source's `hint` in sync with
+  `maxSizeMB`.
+- Deleting a card confirms **in place**: the trash icon morphs into ✓ / ✕; only
+  one card is armed at a time and it auto-cancels after ~4 s.
 - With `maxItems` set, the footer counter shows capacity (`3 de 10`) and turns
-  amber at the ceiling. Uploads beyond the limit are blocked: a batch fills up
-  to capacity and reports the overflow; clicking a full dropzone explains how to
-  free space (remove an item) instead of opening an empty picker.
+  amber at the ceiling; over-limit uploads fill to capacity and report the
+  overflow, and a full dropzone explains how to free space instead of opening an
+  empty picker.
+
+---
+
+*Distilled from a Photon UX prototype. Contributions and write-your-own
+sources/targets welcome — start with [docs/plugins/](docs/plugins/README.md).*
