@@ -13,6 +13,10 @@ No build step. No `package.json`. No bundler. No framework. Drop in a `<script>`
 tag and a `<div>`, and you have a working upload gallery whose styles are fully
 scoped under `.hpv-mixed-gallery`.
 
+<p align="center">
+  <img src="docs/images/gallery-grid.png" alt="hpv-mixed-gallery — a type-aware card grid of images, a PDF and a CSV" width="440">
+</p>
+
 **📚 Full documentation:** [`docs/`](docs/README.md) ·
 [Core](docs/core.md) · [Sources & Targets](docs/plugins/README.md) ·
 [Design rationale](docs/proposals/source-target.md)
@@ -75,6 +79,12 @@ hooks an image previewer + PDF overlay.
 # any static server works; or just open the file
 python3 -m http.server   # then visit http://localhost:8000
 ```
+
+| Upload panel — five pluggable source tabs | In-place delete confirm (trash → ✓ / ✕) |
+|:--:|:--:|
+| <img src="docs/images/upload-panel.png" alt="Upload panel with Local, Camera, Uppy, Clipboard and QR source tabs over a drag-and-drop dropzone" width="340"> | <img src="docs/images/delete-confirm.png" alt="A card armed for deletion, its trash icon swapped for confirm and cancel actions" width="300"> |
+| **Empty state + capacity counter** | **Progressive-disclosure header** |
+| <img src="docs/images/empty-state.png" alt="Empty state with an add-first-file call to action and a 0 of 12 capacity counter" width="340"> | <img src="docs/images/gallery-grid.png" alt="Header with title, subtitle and Add button above the saved-items grid" width="340"> |
 
 ## Dependencies
 
